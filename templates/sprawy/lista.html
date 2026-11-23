@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block tytul %}Sprawy{% endblock %}{% block tresc %}
+<h1>Sprawy <a class="przycisk" style="font-size:14px;margin-left:10px" href="{% url 'admin:sprawy_sprawa_add' %}">+ nowa sprawa</a></h1>
+<form class="linia karta" method="get">
+  <div><label>Szukaj (nazwa, klient, sygnatura, uczestnik)</label><input name="q" value="{{ q }}" size="35"></div>
+  <div><label>Status</label><select name="status"><option value="">wszystkie</option>{% for k, v in statusy %}<option value="{{ k }}" {% if k == status %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+  <button>Filtruj</button></form>
+<div class="karta"><table><tr><th>Nr</th><th>Sprawa</th><th>Klient</th><th>Sygnatury</th><th>Dziedzina</th><th>Status</th></tr>
+{% for s in sprawy %}<tr><td>{{ s.numer }}</td><td><a href="{{ s.get_absolute_url }}">{{ s.tytul }}</a></td><td>{{ s.klient }}</td><td class="szary">{{ s.sygnatury }}</td><td>{{ s.get_dziedzina_display }}</td><td>{{ s.get_status_display }}</td></tr>
+{% empty %}<tr><td colspan="6" class="szary">Brak spraw.</td></tr>{% endfor %}</table></div>
+{% endblock %}

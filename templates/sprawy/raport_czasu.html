@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block tytul %}Czas pracy{% endblock %}{% block tresc %}
+<h1>Czas pracy</h1>
+<form class="linia karta"><div><label>Od</label><input type="date" name="od" value="{{ od }}"></div><div><label>Do</label><input type="date" name="do" value="{{ do }}"></div>
+<div><label>Sprawa</label><select name="sprawa"><option value="">wszystkie</option>{% for s in sprawy %}<option value="{{ s.pk }}" {% if s.pk|stringformat:"s" == wybrana %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div>
+<button>Pokaż</button><button name="format" value="csv" class="przycisk jasny">⬇ pobierz do Excela (CSV)</button></form>
+<div class="karta"><h2>Łącznie: {{ suma }}</h2><table><tr><th>Sprawa</th><th>Czas</th></tr>
+{% for r in per_sprawa %}<tr><td><a href="{% url 'sprawa' r.sprawa__id %}">{{ r.sprawa__numer }} {{ r.sprawa__tytul }}</a></td><td>{{ r.czas }}</td></tr>{% empty %}<tr><td colspan="2" class="szary">Brak wpisów w tym okresie.</td></tr>{% endfor %}</table></div>
+{% endblock %}

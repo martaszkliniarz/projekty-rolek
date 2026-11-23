@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% block tytul %}Kalkulator terminów{% endblock %}{% block tresc %}
+<h1>🧮 Kalkulator terminów{% if sprawa %} — <a href="{{ sprawa.get_absolute_url }}">{{ sprawa }}</a>{% endif %}</h1>
+<div class="siatka">
+<form method="get" class="karta">{% if sprawa %}<input type="hidden" name="sprawa" value="{{ sprawa.pk }}">{% endif %}
+{{ form.non_field_errors }}
+<p><label>{{ form.preset.label }}</label>{{ form.preset }}</p>
+<p class="szary">…albo własny termin:</p>
+<div style="display:flex;gap:8px"><p><label>{{ form.ilosc.label }}</label>{{ form.ilosc }}</p><p><label>{{ form.jednostka.label }}</label>{{ form.jednostka }}</p></div>
+<p><label>{{ form.zdarzenie.label }}</label>{{ form.zdarzenie }}</p>
+<p><label>{{ form.data.label }}</label>{{ form.data }}{{ form.data.errors }}</p>
+<p><label>{{ form.otwarcie.label }}</label>{{ form.otwarcie }}</p>
+<button>Oblicz</button></form>
+<div class="karta">{% if wynik %}
+<h2>{% if preset %}{{ preset.tryb }}: {{ preset.nazwa }} <span class="szary">({{ preset.podstawa }}, {{ preset.od }})</span>{% else %}Wynik{% endif %}</h2>
+<p>Ostatni dzień terminu:</p><p class="wynik">{{ koniec_txt }}</p>
+<ol>{% if doreczenie %}<li>{{ doreczenie }}</li>{% endif %}{% for w in wynik.wyjasnienie %}<li>{{ w }}</li>{% endfor %}</ol>
+{% if termin_form %}<form method="post" action="{{ sprawa.get_absolute_url }}">{% csrf_token %}
+{% for f in termin_form.hidden_fields %}{{ f }}{% endfor %}
+{{ termin_form.data.as_hidden }}{{ termin_form.rodzaj.as_hidden }}{{ termin_form.podstawa.as_hidden }}{{ termin_form.przypisany.as_hidden }}
+<p><label>Opis terminu</label><input name="t-opis" value="{{ termin_form.opis.value|default:'' }}" required size="40"></p>
+<button name="dodaj_termin">Zapisz w sprawie</button></form>
+{% elif not sprawa %}<p class="szary">Wskazówka: otwórz kalkulator z karty sprawy, aby od razu zapisać termin.</p>{% endif %}
+{% else %}
+<h2>Jak liczymy</h2><ul class="szary">
+<li>dnia zdarzenia nie wlicza się,</li><li>tygodnie — ten sam dzień tygodnia, miesiące — ta sama data (lub ostatni dzień miesiąca),</li>
+<li>koniec w sobotę / niedzielę / święto → najbliższy dzień roboczy,</li>
+<li>portal: doręczenie w dniu otwarcia, najpóźniej po 14 dniach od umieszczenia,</li>
+<li>awizo: doręczenie zastępcze po 14 dniach od pierwszego awizo.</li></ul>
+<div class="ostrzezenie">Kalkulator to pomoc — przy każdym terminie zerknij na wyliczenie.</div>{% endif %}
+</div></div>
+{% endblock %}

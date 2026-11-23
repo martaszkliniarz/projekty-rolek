@@ -1,0 +1,14 @@
+<tr class="{{ t.pilnosc }}">
+  <td style="white-space:nowrap"><b>{{ t.data|date:"d.m.Y" }}</b>{% if t.godzina %} {{ t.godzina|time:"H:i" }}{% endif %}<br>
+    <span class="znacznik">{% if t.status != 'otwarty' %}{{ t.get_status_display }}{% elif t.dni_do < 0 %}{{ t.dni_po }} {% if t.dni_po == 1 %}dzień{% else %}dni{% endif %} po terminie!{% elif t.dni_do == 0 %}dziś{% elif t.dni_do == 1 %}jutro{% else %}za {{ t.dni_do }} dni{% endif %}</span></td>
+  <td>{{ t.opis }}{% if t.podstawa %} <span class="szary">· {{ t.podstawa }}</span>{% endif %}
+    {% if pokaz_sprawe %}<br><a href="{{ t.sprawa.get_absolute_url }}">{{ t.sprawa }}</a>{% endif %}
+    {% if t.miejsce %}<br><span class="szary">📍 {{ t.miejsce }}</span>{% endif %}
+    {% if t.wyliczenie %}<details><summary class="szary">wyliczenie</summary><pre class="szary" style="white-space:pre-wrap">{{ t.wyliczenie }}</pre></details>{% endif %}</td>
+  <td class="szary">{{ t.get_rodzaj_display }}{% if t.przypisany %}<br>👤 {{ t.przypisany.get_full_name|default:t.przypisany.username }}{% endif %}</td>
+  <td style="white-space:nowrap">{% if t.status == 'otwarty' %}
+    <form method="post" action="{% url 'termin_status' t.pk %}" style="display:inline">{% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}"><input type="hidden" name="status" value="wykonany">
+      <button class="maly">✓ wykonane</button></form>{% endif %}
+    <a class="szary" href="{% url 'admin:sprawy_termin_change' t.pk %}">edytuj</a></td>
+</tr>

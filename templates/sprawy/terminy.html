@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block tytul %}Terminy{% endblock %}{% block tresc %}
+<h1>Terminy</h1>
+<p><a href="?widok=otwarte" class="przycisk {% if widok != 'otwarte' %}jasny{% endif %}">do zrobienia</a>
+<a href="?widok=otwarte&moje=1" class="przycisk jasny">tylko moje</a>
+<a href="?widok=wykonane" class="przycisk {% if widok != 'wykonane' %}jasny{% endif %}">zamknięte</a></p>
+<div class="karta"><table>{% for t in terminy %}{% include "sprawy/_termin.html" with pokaz_sprawe=1 %}{% empty %}<tr><td class="szary">Brak.</td></tr>{% endfor %}</table></div>
+{% endblock %}

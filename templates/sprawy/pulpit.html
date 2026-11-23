@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block tytul %}Pulpit{% endblock %}{% block tresc %}
+<h1>Dzień dobry! Dziś {{ dzis|date:"l, j E Y" }}</h1>
+<div class="kafle">
+  <div class="kafel"><b style="color:var(--czerwony)">{{ zalegle|length }}</b><span>terminy po czasie</span></div>
+  <div class="kafel"><b>{{ na_dzis|length }}</b><span>na dziś</span></div>
+  <div class="kafel"><b>{{ tydzien|length }}</b><span>w ciągu 7 dni</span></div>
+  <div class="kafel"><b>{{ aktywne }}</b><span>aktywne sprawy</span></div>
+  <div class="kafel"><b>{{ czas_mies }}</b><span>czas pracy w tym miesiącu</span></div>
+</div>
+{% if do_potwierdzenia %}<div class="ostrzezenie">Asystent dodał {{ do_potwierdzenia }} wpis(y) czekające na potwierdzenie.</div>{% endif %}
+{% if zalegle %}<div class="karta"><h2>⚠️ Po terminie — sprawdź!</h2><table>{% for t in zalegle %}{% include "sprawy/_termin.html" with pokaz_sprawe=1 %}{% endfor %}</table></div>{% endif %}
+<div class="karta"><h2>Dziś</h2>{% if na_dzis %}<table>{% for t in na_dzis %}{% include "sprawy/_termin.html" with pokaz_sprawe=1 %}{% endfor %}</table>{% else %}<p class="szary">Brak terminów na dziś.</p>{% endif %}</div>
+<div class="karta"><h2>Najbliższe 7 dni</h2>{% if tydzien %}<table>{% for t in tydzien %}{% include "sprawy/_termin.html" with pokaz_sprawe=1 %}{% endfor %}</table>{% else %}<p class="szary">Nic w najbliższym tygodniu.</p>{% endif %}</div>
+<div class="siatka">
+<div class="karta"><h2>Za 8–30 dni</h2>{% if miesiac %}<table>{% for t in miesiac %}<tr class="{{ t.pilnosc }}"><td>{{ t.data|date:"d.m" }}</td><td>{{ t.opis }}<br><a class="szary" href="{{ t.sprawa.get_absolute_url }}">{{ t.sprawa }}</a></td></tr>{% endfor %}</table>{% else %}<p class="szary">Brak.</p>{% endif %}</div>
+<div class="karta"><h2>Ostatnio zrobione</h2><ul class="chronologia">{% for c in ostatnie %}<li><span class="szary">{{ c.data|date:"d.m" }} · {{ c.czas_txt }}</span> <a href="{{ c.sprawa.get_absolute_url }}">{{ c.sprawa.numer }}</a> {{ c.opis|truncatechars:80 }}</li>{% empty %}<li class="szary">Jeszcze nic.</li>{% endfor %}</ul></div>
+<div class="karta"><h2>Sprawy „uśpione”</h2><p class="szary">Aktywne, bez czynności od 30 dni i bez zaplanowanego terminu — może warto napisać do klienta?</p><ul>{% for s in bez_ruchu %}<li><a href="{{ s.get_absolute_url }}">{{ s }}</a></li>{% empty %}<li class="szary">Wszystkie sprawy są „w ruchu” 👍</li>{% endfor %}</ul></div>
+</div>
+{% endblock %}

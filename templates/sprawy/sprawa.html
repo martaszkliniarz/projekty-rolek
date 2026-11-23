@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% block tytul %}{{ s.numer }} {{ s.tytul }}{% endblock %}{% block tresc %}
+<p class="szary"><a href="{% url 'lista_spraw' %}">← sprawy</a></p>
+<h1>{{ s.tytul }} <span class="znacznik">{{ s.numer }}</span> <span class="znacznik">{{ s.get_status_display }}</span>
+  <a class="przycisk jasny" style="font-size:13px" href="{% url 'admin:sprawy_sprawa_change' s.pk %}">edytuj sprawę</a></h1>
+<div class="siatka">
+<div class="karta"><h2>Klient</h2>
+  <b>{{ s.klient }}</b>{% if s.rola_klienta %} — {{ s.rola_klienta }}{% endif %}<br>
+  {% if s.klient.email %}✉️ <a href="mailto:{{ s.klient.email }}">{{ s.klient.email }}</a><br>{% endif %}
+  {% if s.klient.telefon %}📞 {{ s.klient.telefon }}<br>{% endif %}
+  {% if s.klient.preferowany_kontakt %}<span class="szary">kontakt: {{ s.klient.preferowany_kontakt }}</span><br>{% endif %}
+  <p class="szary">{{ s.get_dziedzina_display }} · przyjęta {{ s.data_przyjecia|date:"d.m.Y" }} · rozliczenie: {{ s.get_rozliczenie_display }}{% if s.stawka_godzinowa %} ({{ s.stawka_godzinowa }} zł/h){% endif %}{% if s.wynagrodzenie_ryczalt %} ({{ s.wynagrodzenie_ryczalt }} zł){% endif %}</p>
+</div>
+<div class="karta"><h2>Postępowania</h2>{% for p in postepowania %}<p><b>{{ p.sygnatura|default:"(bez sygnatury)" }}</b> {% if not p.aktywne %}<span class="znacznik">zakończone</span>{% endif %}<br>{{ p.organ }}<br><span class="szary">{{ p.instancja }}{% if p.referent %} · ref. {{ p.referent }}{% endif %}</span></p>{% empty %}<p class="szary">Brak — dodaj w „edytuj sprawę”.</p>{% endfor %}</div>
+<div class="karta"><h2>Uczestnicy</h2><ul>{% for u in uczestnicy %}<li>{% if u.strona_przeciwna %}⚔️ {% endif %}{{ u.osoba }} — {{ u.rola }}{% if u.pelnomocnik %}<br><span class="szary">pełn.: {{ u.pelnomocnik }}</span>{% endif %}</li>{% empty %}<li class="szary">Brak.</li>{% endfor %}</ul></div>
+</div>
+{% if s.opis or s.strategia %}<div class="karta"><h2>Stan sprawy</h2>{{ s.opis|linebreaks }}{% if s.strategia %}<h2>Strategia</h2>{{ s.strategia|linebreaks }}{% endif %}</div>{% endif %}
+
+<div class="karta"><h2>Terminy <a class="przycisk jasny" style="font-size:13px" href="{% url 'kalkulator' %}?sprawa={{ s.pk }}">🧮 oblicz termin</a></h2>
+<table>{% for t in terminy_otwarte %}{% include "sprawy/_termin.html" %}{% empty %}<tr><td class="szary">Brak otwartych terminów.</td></tr>{% endfor %}</table>
+<details style="margin-top:10px"><summary>+ dodaj termin ręcznie</summary>
+<form method="post" style="margin-top:10px">{% csrf_token %}{{ termin_form.non_field_errors }}
+<div class="linia" style="display:flex;gap:8px;flex-wrap:wrap">{% for f in termin_form.visible_fields %}<p><label>{{ f.label }}</label>{{ f }}{{ f.errors }}</p>{% endfor %}</div>
+{% for f in termin_form.hidden_fields %}{{ f }}{% endfor %}<button name="dodaj_termin">Zapisz termin</button></form></details>
+{% if terminy_zamkniete %}<details style="margin-top:10px"><summary class="szary">zamknięte terminy ({{ terminy_zamkniete|length }})</summary><table>{% for t in terminy_zamkniete %}{% include "sprawy/_termin.html" %}{% endfor %}</table></details>{% endif %}
+</div>
+
+<div class="karta"><h2>Chronologia — co zrobiono <span class="szary" style="font-weight:normal">· łącznie {{ czas }} (rozliczalne {{ czas_rozliczalny }})</span></h2>
+<form method="post" class="karta" style="background:var(--tlo)">{% csrf_token %}
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+<p><label>Data</label>{{ czynnosc_form.data }}</p><p><label>Rodzaj</label>{{ czynnosc_form.typ }}</p>
+<p><label>Czas</label>{{ czynnosc_form.godziny }} h {{ czynnosc_form.minuty }} min</p>
+<p><label>{{ czynnosc_form.rozliczalna.label }}</label>{{ czynnosc_form.rozliczalna }}</p></div>
+<p><label>Co zostało zrobione</label>{{ czynnosc_form.opis }}{{ czynnosc_form.opis.errors }}</p>
+<button name="dodaj_czynnosc">Dodaj do chronologii</button></form>
+<table><tr><th>Data</th><th>Czynność</th><th>Czas</th><th>Kto</th></tr>
+{% for c in czynnosci %}<tr {% if not c.potwierdzona %}class="wkrotce"{% endif %}><td style="white-space:nowrap">{{ c.data|date:"d.m.Y" }}</td>
+<td><span class="szary">{{ c.get_typ_display }}</span><br>{{ c.opis|linebreaksbr }}
+{% if not c.potwierdzona %}<br><span class="znacznik">od asystenta — do potwierdzenia</span>
+<form method="post" action="{% url 'czynnosc_potwierdz' c.pk %}" style="display:inline">{% csrf_token %}<button class="maly">✓ potwierdzam</button></form>{% endif %}</td>
+<td style="white-space:nowrap">{{ c.czas_txt }}{% if not c.rozliczalna %}<br><span class="szary">nierozl.</span>{% endif %}</td>
+<td class="szary">{% if c.wykonal %}{{ c.wykonal.get_full_name|default:c.wykonal.username }}{% elif c.zrodlo == "asystent" %}asystent{% endif %}</td></tr>
+{% empty %}<tr><td colspan="4" class="szary">Brak wpisów.</td></tr>{% endfor %}</table></div>
+
+<div class="karta"><h2>Dokumenty</h2><ul>{% for d in dokumenty %}<li>{{ d.data|date:"d.m.Y" }} — {% if d.plik %}<a href="{{ d.plik.url }}">{{ d.nazwa }}</a>{% else %}{{ d.nazwa }}{% endif %}{% if d.opis %} <span class="szary">{{ d.opis }}</span>{% endif %}</li>{% empty %}<li class="szary">Brak — dodaj w „edytuj sprawę”.</li>{% endfor %}</ul>
+<a class="szary" href="{% url 'raport_czasu' %}?sprawa={{ s.pk }}&od={{ s.data_przyjecia|date:'Y-m-d' }}">raport czasu dla tej sprawy →</a></div>
+{% endblock %}
