@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% block tytul %}Wpływy{% endblock %}{% block tresc %}
+<h1>📥 Wpływy — poczta i portal</h1>
+<p><a href="?widok=nowe" class="przycisk {% if widok != 'nowe' %}jasny{% endif %}">nowe</a>
+<a href="?widok=archiwum" class="przycisk {% if widok == 'nowe' %}jasny{% endif %}">przejrzane</a></p>
+{% for w in wplywy %}
+<div class="karta {% if w.rodzaj == 'doreczenie' and w.status == 'nowy' %}po-terminie{% endif %}">
+  <div class="szary">{{ w.data|date:"d.m.Y" }} · {{ w.get_zrodlo_display }} · {{ w.get_rodzaj_display }}{% if w.nadawca %} · {{ w.nadawca }}{% endif %}</div>
+  <h2 style="margin-top:4px">{{ w.tytul }}</h2>
+  {% if w.sprawa %}<p>Sprawa: <a href="{{ w.sprawa.get_absolute_url }}">{{ w.sprawa }}</a>{% if w.sygnatura %} <span class="szary">(rozpoznano sygn. {{ w.sygnatura }})</span>{% endif %}</p>
+  {% else %}<p class="ostrzezenie" style="display:inline-block">Nie przypisano do sprawy{% if w.sygnatura %} — sygnatura {{ w.sygnatura }} nie występuje w kartotece{% endif %}.</p>{% endif %}
+  {% if w.rodzaj == 'doreczenie' %}<p class="szary">⚠️ Doręczenie: termin biegnie od otwarcia w zakładce „Doręczenia”, a najpóźniej od upływu 14 dni od umieszczenia ({{ w.data|date:"d.m.Y" }}).</p>{% endif %}
+  {% if w.tresc %}<details><summary class="szary">treść</summary><pre class="szary" style="white-space:pre-wrap;font-family:inherit">{{ w.tresc }}</pre></details>{% endif %}
+  {% if w.status == 'nowy' %}
+  <form method="post" action="{% url 'wplyw_akcja' w.pk %}" class="linia" style="margin-top:10px">{% csrf_token %}
+    {% if not w.sprawa %}<div><label>Sprawa</label><select name="sprawa" required><option value="">— wybierz —</option>{% for s in sprawy %}<option value="{{ s.pk }}">{{ s }}</option>{% endfor %}</select></div>{% endif %}
+    <div><label>Notatka do chronologii (opcjonalnie)</label><input name="notatka" size="40"></div>
+    <button name="akcja" value="przyjmij">✓ do chronologii</button>
+    <button name="akcja" value="termin" class="przycisk jasny">✓ i oblicz termin</button>
+    <button name="akcja" value="pomin" class="maly" formnovalidate>pomiń</button>
+  </form>
+  {% else %}<p class="szary">{{ w.get_status_display }}</p>{% endif %}
+</div>
+{% empty %}<div class="karta szary">Brak {% if widok == 'nowe' %}nowych {% endif %}wpływów.</div>{% endfor %}
+{% endblock %}

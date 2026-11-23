@@ -273,6 +273,49 @@ class Dokument(models.Model):
         return self.nazwa
 
 
+class Wplyw(models.Model):
+    """Skrzynka wpływów: wszystko, co asystent znalazł w poczcie i w portalu.
+    Po przejrzeniu wpływ trafia do chronologii sprawy (albo zostaje pominięty)."""
+
+    class Zrodlo(models.TextChoices):
+        POCZTA = "poczta", "poczta e-mail"
+        PORTAL = "portal", "portal informacyjny"
+
+    class Rodzaj(models.TextChoices):
+        EMAIL = "email", "e-mail"
+        POWIADOMIENIE = "powiadomienie", "powiadomienie z portalu"
+        CZYNNOSC = "czynnosc", "czynność w sprawie (portal)"
+        DOKUMENT = "dokument", "nowy dokument w aktach (portal)"
+        DORECZENIE = "doreczenie", "doręczenie (portal) — uwaga na termin!"
+
+    class Status(models.TextChoices):
+        NOWY = "nowy", "nowy"
+        PRZYJETY = "przyjety", "dodany do chronologii"
+        POMINIETY = "pominiety", "pominięty"
+
+    zrodlo = models.CharField(max_length=10, choices=Zrodlo.choices)
+    rodzaj = models.CharField(max_length=15, choices=Rodzaj.choices, default=Rodzaj.EMAIL)
+    zewn_id = models.CharField("identyfikator źródłowy", max_length=300, unique=True,
+                               help_text="Message-ID e-maila lub identyfikator z portalu — chroni przed duplikatami")
+    data = models.DateField()
+    tytul = models.CharField(max_length=300)
+    tresc = models.TextField(blank=True)
+    nadawca = models.CharField(max_length=200, blank=True)
+    sygnatura = models.CharField("rozpoznana sygnatura", max_length=60, blank=True)
+    sprawa = models.ForeignKey(Sprawa, on_delete=models.SET_NULL, null=True, blank=True, related_name="wplywy")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.NOWY)
+    czynnosc = models.OneToOneField(Czynnosc, on_delete=models.SET_NULL, null=True, blank=True)
+    utworzono = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "wpływ"
+        verbose_name_plural = "wpływy (poczta i portal)"
+        ordering = ["-data", "-utworzono"]
+
+    def __str__(self):
+        return f"{self.data:%d.%m.%Y} {self.tytul}"
+
+
 def format_czas(minuty: int) -> str:
     h, m = divmod(minuty or 0, 60)
     if h and m:

@@ -9,6 +9,7 @@
   {% with n=request.resolver_match.url_name %}
   <a href="{% url 'pulpit' %}" class="{% if n == 'pulpit' %}akt{% endif %}">Pulpit</a>
   <a href="{% url 'lista_spraw' %}" class="{% if n == 'lista_spraw' or n == 'sprawa' %}akt{% endif %}">Sprawy</a>
+  <a href="{% url 'wplywy' %}" class="{% if n == 'wplywy' %}akt{% endif %}">Wpływy</a>
   <a href="{% url 'terminy' %}" class="{% if n == 'terminy' %}akt{% endif %}">Terminy</a>
   <a href="{% url 'kalkulator' %}" class="{% if n == 'kalkulator' %}akt{% endif %}">Kalkulator</a>
   <a href="{% url 'raport_czasu' %}" class="{% if n == 'raport_czasu' %}akt{% endif %}">Czas pracy</a>
@@ -19,6 +20,6 @@
 </header>
 {% endif %}
 <main>
-{% for m in messages %}<div class="komunikat">{{ m }}</div>{% endfor %}
+{% for m in messages %}<div class="{% if m.level_tag == 'error' %}ostrzezenie{% else %}komunikat{% endif %}">{{ m }}</div>{% endfor %}
 {% block tresc %}{% endblock %}
 </main></body></html>

@@ -9,7 +9,7 @@
 <p><label>{{ form.zdarzenie.label }}</label>{{ form.zdarzenie }}</p>
 <p><label>{{ form.data.label }}</label>{{ form.data }}{{ form.data.errors }}</p>
 <p><label>{{ form.otwarcie.label }}</label>{{ form.otwarcie }}</p>
-<button>Oblicz</button></form>
+<button name="oblicz" value="1">Oblicz</button></form>
 <div class="karta">{% if wynik %}
 <h2>{% if preset %}{{ preset.tryb }}: {{ preset.nazwa }} <span class="szary">({{ preset.podstawa }}, {{ preset.od }})</span>{% else %}Wynik{% endif %}</h2>
 <p>Ostatni dzień terminu:</p><p class="wynik">{{ koniec_txt }}</p>
@@ -24,7 +24,7 @@
 <h2>Jak liczymy</h2><ul class="szary">
 <li>dnia zdarzenia nie wlicza się,</li><li>tygodnie — ten sam dzień tygodnia, miesiące — ta sama data (lub ostatni dzień miesiąca),</li>
 <li>koniec w sobotę / niedzielę / święto → najbliższy dzień roboczy,</li>
-<li>portal: doręczenie w dniu otwarcia, najpóźniej po 14 dniach od umieszczenia,</li>
+<li>portal (zakładka „Doręczenia”): doręczenie w dniu otwarcia, najpóźniej po 14 dniach od umieszczenia,</li>
 <li>awizo: doręczenie zastępcze po 14 dniach od pierwszego awizo.</li></ul>
 <div class="ostrzezenie">Kalkulator to pomoc — przy każdym terminie zerknij na wyliczenie.</div>{% endif %}
 </div></div>

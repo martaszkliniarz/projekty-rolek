@@ -7,12 +7,13 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Sum
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.crypto import constant_time_compare
 from django.views.decorators.http import require_POST
 
 from .forms import CzynnoscForm, KalkulatorForm, TerminForm
 from .ics import kalendarz_ics
-from .models import Czynnosc, Sprawa, Termin, format_czas
+from .models import Czynnosc, Sprawa, Termin, Wplyw, format_czas
 from .terminy import PRESETY_PO_KODZIE, doreczenie_awizo, doreczenie_portal, fmt, oblicz_termin
 
 
@@ -31,6 +32,8 @@ def pulpit(request):
         "aktywne": Sprawa.objects.filter(status=Sprawa.Status.AKTYWNA).count(),
         "czas_mies": format_czas(czas_mies),
         "do_potwierdzenia": Czynnosc.objects.filter(potwierdzona=False).count(),
+        "nowe_wplywy": Wplyw.objects.filter(status=Wplyw.Status.NOWY).count(),
+        "doreczenia": Wplyw.objects.filter(status=Wplyw.Status.NOWY, rodzaj=Wplyw.Rodzaj.DORECZENIE).count(),
         "ostatnie": Czynnosc.objects.select_related("sprawa", "wykonal")[:10],
         "bez_ruchu": Sprawa.objects.filter(status=Sprawa.Status.AKTYWNA)
             .exclude(czynnosci__data__gte=dzis - timedelta(days=30))
@@ -132,9 +135,12 @@ def kalkulator(request):
     sprawa_obj = None
     if request.GET.get("sprawa"):
         sprawa_obj = get_object_or_404(Sprawa, pk=request.GET["sprawa"])
-    form = KalkulatorForm(request.GET or None)
+    if "oblicz" in request.GET:
+        form = KalkulatorForm(request.GET)
+    else:
+        form = KalkulatorForm(initial=request.GET.dict())
     wynik, doreczenie, preset, termin_form = None, None, None, None
-    if request.GET.get("data") and form.is_valid():
+    if form.is_bound and form.is_valid():
         c = form.cleaned_data
         preset = PRESETY_PO_KODZIE.get(c["preset"])
         ilosc = preset["ilosc"] if preset else c["ilosc"]
@@ -162,6 +168,48 @@ def kalkulator(request):
         "sprawa": sprawa_obj, "termin_form": termin_form,
         "koniec_txt": fmt(wynik.koniec) if wynik else "",
     })
+
+
+@login_required
+def wplywy(request):
+    widok = request.GET.get("widok", "nowe")
+    qs = Wplyw.objects.select_related("sprawa")
+    qs = qs.filter(status=Wplyw.Status.NOWY) if widok == "nowe" else qs.exclude(status=Wplyw.Status.NOWY)
+    return render(request, "sprawy/wplywy.html", {
+        "wplywy": qs[:200], "widok": widok,
+        "sprawy": Sprawa.objects.exclude(status=Sprawa.Status.ARCHIWUM),
+    })
+
+
+@login_required
+@require_POST
+def wplyw_akcja(request, pk):
+    w = get_object_or_404(Wplyw, pk=pk)
+    akcja = request.POST.get("akcja")
+    if akcja == "pomin":
+        w.status = Wplyw.Status.POMINIETY
+        w.save()
+        return redirect("wplywy")
+    if request.POST.get("sprawa"):
+        w.sprawa = get_object_or_404(Sprawa, pk=request.POST["sprawa"])
+    if not w.sprawa:
+        messages.error(request, "Wybierz sprawę, do której należy ten wpływ.")
+        return redirect("wplywy")
+    opis = f"[{w.get_rodzaj_display()}] {w.tytul}"
+    if request.POST.get("notatka"):
+        opis += f"\n{request.POST['notatka']}"
+    w.czynnosc = Czynnosc.objects.create(
+        sprawa=w.sprawa, data=w.data, typ=Czynnosc.Typ.WPLYW, opis=opis, czas_min=0, rozliczalna=False,
+        wykonal=request.user,
+        zrodlo=Czynnosc.Zrodlo.PORTAL if w.zrodlo == Wplyw.Zrodlo.PORTAL else Czynnosc.Zrodlo.POCZTA,
+    )
+    w.status = Wplyw.Status.PRZYJETY
+    w.save()
+    messages.success(request, f"Dodano do chronologii sprawy {w.sprawa.numer}.")
+    if akcja == "termin":
+        zdarzenie = "portal" if w.rodzaj == Wplyw.Rodzaj.DORECZENIE else "bezposrednio"
+        return redirect(f"{reverse('kalkulator')}?sprawa={w.sprawa.pk}&zdarzenie={zdarzenie}&data={w.data:%Y-%m-%d}")
+    return redirect("wplywy")
 
 
 @login_required

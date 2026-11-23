@@ -7,6 +7,8 @@
   <div class="kafel"><b>{{ aktywne }}</b><span>aktywne sprawy</span></div>
   <div class="kafel"><b>{{ czas_mies }}</b><span>czas pracy w tym miesiącu</span></div>
 </div>
+{% if doreczenia %}<div class="ostrzezenie" style="background:var(--czerwony-tlo);color:var(--czerwony)">⚠️ Nowe doręczenia w portalu: {{ doreczenia }} — <a href="{% url 'wplywy' %}">sprawdź i policz termin</a>.</div>{% endif %}
+{% if nowe_wplywy %}<div class="ostrzezenie">📥 Nowe wpływy z poczty i portalu: <b>{{ nowe_wplywy }}</b> — <a href="{% url 'wplywy' %}">przejrzyj</a>.</div>{% endif %}
 {% if do_potwierdzenia %}<div class="ostrzezenie">Asystent dodał {{ do_potwierdzenia }} wpis(y) czekające na potwierdzenie.</div>{% endif %}
 {% if zalegle %}<div class="karta"><h2>⚠️ Po terminie — sprawdź!</h2><table>{% for t in zalegle %}{% include "sprawy/_termin.html" with pokaz_sprawe=1 %}{% endfor %}</table></div>{% endif %}
 <div class="karta"><h2>Dziś</h2>{% if na_dzis %}<table>{% for t in na_dzis %}{% include "sprawy/_termin.html" with pokaz_sprawe=1 %}{% endfor %}</table>{% else %}<p class="szary">Brak terminów na dziś.</p>{% endif %}</div>

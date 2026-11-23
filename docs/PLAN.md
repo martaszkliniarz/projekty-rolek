@@ -5,15 +5,20 @@ Kartoteka spraw, chronologia z czasem pracy, terminy i kalkulator (KPC/KPK),
 raport czasu (CSV), kalendarz .ics dla Google, wersja lokalna i chmurowa.
 
 ## Etap 2 — poczta, portal, Google i poranny raport
-- **Poczta home.pl (IMAP)**: program co kilka/kilkanaście minut czyta skrzynkę (w tym folder z powiadomieniami
-  z Portalu Informacyjnego), rozpoznaje sygnaturę i przypisuje wiadomość do sprawy (wpis „wpływ” w chronologii
-  do potwierdzenia).
-- **Portal Informacyjny Sądów Powszechnych**: źródłem są e-maile z powiadomieniami portalu (bez otwierania
-  dokumentów!). Program zakłada termin „doręczenie fikcyjne za 14 dni” i przypomina, że otwarcie
-  dokumentu = doręczenie. Ewentualny odczyt bezpośrednio z portalu — do oceny po sprawdzeniu regulaminu.
-- **Kalendarz Google przez API**: natychmiastowa synchronizacja terminów (zamiast subskrypcji .ics).
-- **Poranny raport** (codziennie ok. 7:00, e-mailem): nowe wpływy, terminy na dziś/tydzień, terminy po czasie,
-  wpisy czekające na potwierdzenie.
+- ✅ **Skrzynka „Wpływy”** z dopasowaniem do sprawy po sygnaturze → chronologia / kalkulator terminu.
+- ✅ **Poczta home.pl (IMAP, tylko odczyt)**: kancelaria@adwokat-sosnowiec.eu — powiadomienia z portalu
+  i maile z sygnaturami spraw.
+- ✅ **Poranny raport** e-mailem w dni robocze + asystent w tle (docker compose).
+- ⏳ **Robot Portalu Informacyjnego** — codziennie przegląda sprawy w portalu:
+  - zakładka **„Czynności”** → nowe czynności trafiają do wpływów, a po akceptacji do chronologii,
+  - zakładka **„Dokumenty”** → nowe pisma (tu otwieranie nie powoduje doręczenia) — opis, a docelowo
+    treść/streszczenie i zapis pliku w dokumentach sprawy,
+  - zakładka **„Doręczenia”** → wyłącznie odczyt LISTY (data umieszczenia, nazwa pisma); robot nigdy nie
+    otwiera ani nie pobiera dokumentu z tej zakładki; program liczy datę fikcji doręczenia i alarmuje.
+  - Miejsce zapisu jest gotowe (`sprawy/portal.py`). Do napisania robota potrzebna jest rzeczywista
+    struktura stron portalu (zapisane strony lub wspólna sesja na komputerze Pani Mecenas) oraz
+    informacja o sposobie logowania (hasło / kod SMS / aplikacja).
+- ⏳ **Kalendarz Google przez API**: natychmiastowa synchronizacja terminów (zamiast subskrypcji .ics).
 
 ## Etap 3 — asystenci AI
 - **Asystent wpływów**: streszcza nowe pismo/powiadomienie, proponuje wpis do chronologii i termin

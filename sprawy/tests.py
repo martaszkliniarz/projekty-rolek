@@ -135,7 +135,7 @@ class WidokiTest(DaneMixin, TestCase):
 
     def test_kalkulator_i_zapis_terminu(self):
         r = self.client.get(reverse("kalkulator"), {
-            "sprawa": self.sprawa.pk, "preset": "kpc_apelacja", "zdarzenie": "portal", "data": "2026-11-02",
+            "sprawa": self.sprawa.pk, "preset": "kpc_apelacja", "zdarzenie": "portal", "data": "2026-11-02", "oblicz": "1",
         })
         # portal 2.11 → doręczenie 16.11 → +2 tyg. = 30.11.2026
         self.assertContains(r, "30.11.2026")
@@ -178,3 +178,142 @@ class KalendarzTest(DaneMixin, TestCase):
     @override_settings(KALENDARZ_TOKEN="")
     def test_brak_tokenu_wylacza(self):
         self.assertEqual(self.client.get("/kalendarz/.ics").status_code, 404)
+
+
+# ------------------------------------------------------------------ Etap 2 ---
+from email.message import EmailMessage
+from unittest import mock
+
+from django.core import mail
+
+from .models import Postepowanie, Wplyw
+from .poczta import przetworz_wiadomosc, sprawdz_poczte
+from .portal import ZdarzeniePortalu, zapisz_zdarzenia
+from .raport import tresc_raportu
+from .sygnatury import dopasuj_sprawe, normalizuj, znajdz_sygnatury
+
+
+def eml(temat, tresc, nadawca="sad@example.pl", msg_id="<1@x>", html=False):
+    m = EmailMessage()
+    m["Subject"], m["From"], m["To"] = temat, nadawca, "kancelaria@example.pl"
+    m["Message-ID"], m["Date"] = msg_id, "Mon, 23 Nov 2026 08:15:00 +0100"
+    if html:
+        m.set_content("<p>" + tresc + "</p>", subtype="html")
+    else:
+        m.set_content(tresc)
+    return m.as_bytes()
+
+
+class SygnaturyTest(TestCase):
+    def test_rozpoznawanie(self):
+        t = "W sprawie III RC 120/26 oraz I ACa 1234/2025; postępowanie PR 2 Ds. 345.2026 i II K 77/26."
+        self.assertEqual(znajdz_sygnatury(t), ["III RC 120/26", "I ACa 1234/2025", "II K 77/26", "PR 2 Ds. 345.2026"])
+
+    def test_normalizacja(self):
+        self.assertEqual(normalizuj("I C 123 / 2026"), normalizuj("i c 123/26"))
+        self.assertNotEqual(normalizuj("I C 123/26"), normalizuj("I C 123/25"))
+
+
+class PocztaTest(DaneMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        Postepowanie.objects.create(sprawa=self.sprawa, organ="SO", sygnatura="I C 123/26")
+
+    def test_dopasowanie(self):
+        s, sygn = dopasuj_sprawe("Zawiadomienie w sprawie I C 123/2026")
+        self.assertEqual((s, sygn), (self.sprawa, "I C 123/2026"))
+
+    def test_mail_z_sygnatura_trafia_do_sprawy(self):
+        w = przetworz_wiadomosc(eml("Odpowiedź na pozew – I C 123/26", "W załączeniu…", "pelnomocnik@x.pl"))
+        self.assertEqual((w.sprawa, w.zrodlo, w.data), (self.sprawa, "poczta", date(2026, 11, 23)))
+
+    def test_mail_bez_sygnatury_pomijany(self):
+        self.assertIsNone(przetworz_wiadomosc(eml("Newsletter", "Promocja!")))
+
+    def test_powiadomienie_portalu_html(self):
+        w = przetworz_wiadomosc(eml("Portal Informacyjny – nowe zdarzenie", "Sprawa <b>I C 123/26</b><br>Nowy dokument",
+                                    "powiadomienia@portal-informacyjny.example", html=True))
+        self.assertEqual((w.zrodlo, w.rodzaj, w.sprawa), ("portal", "powiadomienie", self.sprawa))
+        self.assertIn("Nowy dokument", w.tresc)
+        self.assertNotIn("<b>", w.tresc)
+
+    def test_powiadomienie_portalu_nieznana_sprawa(self):
+        w = przetworz_wiadomosc(eml("Portal informacyjny", "Sprawa IV RC 9/26", "noreply@portal-informacyjny.example"))
+        self.assertIsNone(w.sprawa)
+        self.assertEqual(w.sygnatura, "IV RC 9/26")
+
+    def test_duplikaty(self):
+        przetworz_wiadomosc(eml("I C 123/26", "x"))
+        self.assertIsNone(przetworz_wiadomosc(eml("I C 123/26", "x")))
+
+    @override_settings(IMAP_HOST="imap.test", IMAP_USER="u", IMAP_HASLO="p", IMAP_FOLDERY=["INBOX"])
+    def test_imap_tylko_do_odczytu(self):
+        with mock.patch("sprawy.poczta.imaplib.IMAP4_SSL") as klasa:
+            imap = klasa.return_value.__enter__.return_value
+            imap.select.return_value = ("OK", [b"1"])
+            imap.search.return_value = ("OK", [b"1 2"])
+            imap.fetch.side_effect = [("OK", [(b"1", eml("I C 123/26 pismo", "x", msg_id="<a@x>"))]),
+                                      ("OK", [(b"2", eml("spam", "x", msg_id="<b@x>"))])]
+            nowe = sprawdz_poczte()
+        self.assertEqual(len(nowe), 1)
+        imap.select.assert_called_with('"INBOX"', readonly=True)
+        for c in imap.fetch.call_args_list:
+            self.assertIn("PEEK", c.args[1])
+        imap.store.assert_not_called()
+
+
+class PortalTest(DaneMixin, TestCase):
+    def test_zapis_zdarzen_bez_duplikatow(self):
+        Postepowanie.objects.create(sprawa=self.sprawa, organ="SR", sygnatura="III RC 5/26")
+        z = [ZdarzeniePortalu("III RC 5/26", Wplyw.Rodzaj.CZYNNOSC, date(2026, 11, 20), "Wyznaczono termin", "c1"),
+             ZdarzeniePortalu("III RC 5/26", Wplyw.Rodzaj.DORECZENIE, date(2026, 11, 21), "Postanowienie", "d1")]
+        self.assertEqual(len(zapisz_zdarzenia(z)), 2)
+        self.assertEqual(len(zapisz_zdarzenia(z)), 0)
+        self.assertEqual(Wplyw.objects.filter(sprawa=self.sprawa).count(), 2)
+
+
+class WplywyWidokTest(DaneMixin, TestCase):
+    def test_przyjecie_do_chronologii_i_kalkulator(self):
+        w = Wplyw.objects.create(zrodlo="portal", rodzaj="doreczenie", zewn_id="p:1", data=date(2026, 11, 2),
+                                 tytul="Wyrok z uzasadnieniem", sprawa=self.sprawa)
+        self.assertContains(self.client.get(reverse("wplywy")), "Wyrok z uzasadnieniem")
+        r = self.client.post(reverse("wplyw_akcja", args=[w.pk]), {"akcja": "termin"})
+        self.assertIn("zdarzenie=portal", r.url)
+        self.assertIn("data=2026-11-02", r.url)
+        w.refresh_from_db()
+        self.assertEqual(w.status, "przyjety")
+        self.assertEqual(w.czynnosc.sprawa, self.sprawa)
+        # kalkulator otwiera się wypełniony, ale nie liczy przed kliknięciem „Oblicz”
+        r = self.client.get(r.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "Wybierz rodzaj terminu")
+
+    def test_nieprzypisany_wymaga_sprawy(self):
+        w = Wplyw.objects.create(zrodlo="poczta", zewn_id="m:1", data=date.today(), tytul="X")
+        self.client.post(reverse("wplyw_akcja", args=[w.pk]), {"akcja": "przyjmij"})
+        w.refresh_from_db()
+        self.assertEqual(w.status, "nowy")
+        self.client.post(reverse("wplyw_akcja", args=[w.pk]), {"akcja": "przyjmij", "sprawa": self.sprawa.pk})
+        w.refresh_from_db()
+        self.assertEqual((w.status, w.sprawa), ("przyjety", self.sprawa))
+
+    def test_pominiecie(self):
+        w = Wplyw.objects.create(zrodlo="poczta", zewn_id="m:2", data=date.today(), tytul="X")
+        self.client.post(reverse("wplyw_akcja", args=[w.pk]), {"akcja": "pomin"})
+        w.refresh_from_db()
+        self.assertEqual(w.status, "pominiety")
+        self.assertFalse(Czynnosc.objects.exists())
+
+
+class RaportTest(DaneMixin, TestCase):
+    def test_tresc_i_wysylka(self):
+        Termin.objects.create(sprawa=self.sprawa, opis="Apelacja", data=date.today() - timedelta(days=1))
+        Wplyw.objects.create(zrodlo="portal", rodzaj="doreczenie", zewn_id="p:9", data=date.today(), tytul="Wyrok")
+        temat, tresc = tresc_raportu()
+        self.assertIn("po terminie", temat)
+        self.assertIn("DORĘCZENIE", tresc)
+        self.assertIn("NIEPRZYPISANY", tresc)
+        with override_settings(RAPORT_ODBIORCY=["a@example.pl"]):
+            from .raport import wyslij_raport
+            wyslij_raport()
+        self.assertEqual(len(mail.outbox), 1)

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Czynnosc, Dokument, Osoba, Postepowanie, Sprawa, Termin, Uczestnik
+from .models import Czynnosc, Dokument, Osoba, Postepowanie, Sprawa, Termin, Uczestnik, Wplyw
 
 admin.site.site_header = "Kancelaria — panel edycji"
 admin.site.site_title = "Kancelaria"
@@ -86,3 +86,12 @@ class CzynnoscAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Dokument)
+
+
+@admin.register(Wplyw)
+class WplywAdmin(admin.ModelAdmin):
+    list_display = ["data", "zrodlo", "rodzaj", "tytul", "sygnatura", "sprawa", "status"]
+    list_filter = ["status", "zrodlo", "rodzaj"]
+    search_fields = ["tytul", "tresc", "sygnatura", "nadawca"]
+    autocomplete_fields = ["sprawa"]
+    readonly_fields = ["zewn_id", "czynnosc"]

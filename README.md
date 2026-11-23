@@ -2,7 +2,7 @@
 
 Autorski program dla jednoosobowej kancelarii adwokackiej (sprawy rodzinne i karne).
 
-**Etap 1 (gotowy):**
+**Gotowe (Etap 1 i część Etapu 2):**
 
 | Moduł | Co robi |
 |---|---|
@@ -12,6 +12,9 @@ Autorski program dla jednoosobowej kancelarii adwokackiej (sprawy rodzinne i kar
 | **Terminy** | lista z oznaczaniem „wykonane”, przypisanie do osoby (Pani / asystentka) |
 | **Kalkulator terminów** | KPC i KPK, soboty i święta, fikcja doręczenia (portal / awizo), gotowe presety (apelacja, zażalenie, kasacja…) — wynik zapisuje się w sprawie razem z wyliczeniem |
 | **Kalendarz Google** | wszystkie terminy jako subskrybowany kalendarz (tryb anonimowy — bez nazwisk) |
+| **Wpływy** | jedna skrzynka na wszystko z poczty i portalu, automatycznie przypisane do sprawy po sygnaturze; jednym kliknięciem do chronologii (i do kalkulatora terminu) |
+| **Odczyt poczty** | kancelaria@ w home.pl — powiadomienia z portalu i maile z sygnaturami spraw; skrzynka tylko do odczytu |
+| **Poranny raport** | w dni robocze o 7:00 e-mailem: terminy po czasie, na dziś, na tydzień, nowe wpływy i doręczenia |
 | **Panel edycji** | dodawanie i poprawianie wszystkiego: sprawy, osoby, terminy, czynności, dokumenty |
 
 Plan kolejnych etapów (poczta home.pl, portal sądów, asystenci AI): [docs/PLAN.md](docs/PLAN.md).
@@ -34,16 +37,16 @@ momencie) wpisz: `.venv\Scripts\python manage.py dane_przykladowe` (Windows) /
 **Konto dla asystentki:** Panel edycji → Użytkownicy → Dodaj. Zaznacz „W zespole” i nadaj uprawnienia
 do modułu *Sprawy* (bez uprawnień do użytkowników).
 
-## Uruchomienie w chmurze
+## Uruchomienie w chmurze (wersja główna — wspólna dla Pani i asystentki)
 
-Program jest gotowy do uruchomienia w kontenerze Docker (np. na serwerze VPS w Polsce / UE,
-także w home.pl, OVH, Hetzner):
+Program jest gotowy do uruchomienia w kontenerach Docker na serwerze VPS w Polsce / UE
+(np. home.pl, OVH). Działają dwie części: program (`www`) i asystent w tle (`asystent`),
+który sprawdza pocztę co 15 minut i wysyła poranny raport.
 
 ```sh
-cp .env.example .env        # uzupełnij: DEBUG=0, SECRET_KEY, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS
-docker build -t kancelaria .
-docker run -d --name kancelaria --env-file .env -v /srv/kancelaria-dane:/dane -p 8000:8000 kancelaria
-docker exec -it kancelaria python manage.py createsuperuser
+cp .env.example .env        # uzupełnij: DEBUG=0, SECRET_KEY, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, poczta
+docker compose up -d --build
+docker compose exec www python manage.py createsuperuser
 ```
 
 Przed serwerem musi stać HTTPS (np. Caddy lub panel hostingu). Wersję w chmurze najlepiej
@@ -53,6 +56,17 @@ ustawić razem — to jednorazowa praca na ok. godzinę.
 
 Wszystkie dane są w folderze **`dane/`** (baza `kancelaria.sqlite3` + dokumenty w `pliki/`).
 Ten folder trzeba regularnie kopiować (np. zaszyfrowany dysk zewnętrzny). Nie jest wysyłany na GitHuba.
+
+## Poczta i poranny raport
+
+1. W `.env` uzupełnij `IMAP_HOST`, `IMAP_USER`, `IMAP_HASLO` (dane z panelu home.pl) i `RAPORT_ODBIORCY`.
+2. Test na komputerze: `python manage.py sprawdz_poczte` (pobiera wpływy z ostatnich 14 dni)
+   i `python manage.py raport_dzienny --podglad` (pokazuje raport bez wysyłania).
+3. W chmurze robi to automatycznie asystent w tle.
+
+Program otwiera skrzynkę **tylko do odczytu**: niczego nie kasuje, nie przenosi i nie oznacza
+jako przeczytane. Zapisuje wyłącznie powiadomienia z portalu i maile, w których rozpozna sygnaturę
+sprawy z kartoteki — dlatego warto uzupełniać sygnatury w zakładce „Postępowania”.
 
 ## Kalendarz Google
 

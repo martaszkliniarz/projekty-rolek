@@ -3,7 +3,7 @@ from datetime import date, time, timedelta
 
 from django.core.management.base import BaseCommand
 
-from sprawy.models import Czynnosc, Osoba, Postepowanie, Sprawa, Termin, Uczestnik
+from sprawy.models import Czynnosc, Osoba, Postepowanie, Sprawa, Termin, Uczestnik, Wplyw
 
 
 class Command(BaseCommand):
@@ -43,4 +43,11 @@ class Command(BaseCommand):
                                 data=d - timedelta(days=10))
         Czynnosc.objects.create(sprawa=s2, opis="Wpłynęło zawiadomienie o terminie (portal) — propozycja asystenta",
                                 typ="wplyw", zrodlo="asystent", potwierdzona=False, czas_min=0, data=d)
+        Wplyw.objects.create(zrodlo="portal", rodzaj="doreczenie", zewn_id="demo:1", data=d - timedelta(days=1),
+                             tytul="Wyrok z uzasadnieniem", sygnatura="II K 456/26", sprawa=s2)
+        Wplyw.objects.create(zrodlo="portal", rodzaj="czynnosc", zewn_id="demo:2", data=d,
+                             tytul="Zarządzenie o wyznaczeniu terminu rozprawy", sygnatura="I C 123/26", sprawa=s1)
+        Wplyw.objects.create(zrodlo="poczta", rodzaj="email", zewn_id="demo:3", data=d,
+                             nadawca="kancelaria-przeciwnika@example.com", tytul="Propozycja ugody – III RC 77/26",
+                             tresc="Szanowna Pani Mecenas, w imieniu mojego klienta…", sygnatura="III RC 77/26")
         self.stdout.write(self.style.SUCCESS("Dodano dane przykładowe."))

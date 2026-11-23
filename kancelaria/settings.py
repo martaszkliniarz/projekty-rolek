@@ -116,3 +116,26 @@ if not DEBUG:
 # --- Kalendarz Google (subskrypcja .ics) ---
 KALENDARZ_TOKEN = os.environ.get("KALENDARZ_TOKEN", "")
 KALENDARZ_ANONIMOWY = env_bool("KALENDARZ_ANONIMOWY", True)
+
+# --- Poczta (home.pl): odczyt IMAP ---
+IMAP_HOST = os.environ.get("IMAP_HOST", "")
+IMAP_PORT = int(os.environ.get("IMAP_PORT", "993"))
+IMAP_USER = os.environ.get("IMAP_USER", "")
+IMAP_HASLO = os.environ.get("IMAP_HASLO", "")
+IMAP_FOLDERY = [f.strip() for f in os.environ.get("IMAP_FOLDERY", "INBOX").split(",") if f.strip()]
+IMAP_DNI = int(os.environ.get("IMAP_DNI", "14"))
+# Po czym rozpoznać powiadomienie z portalu (nadawca lub temat zawiera którykolwiek z tekstów)
+PORTAL_ZNACZNIKI = os.environ.get("PORTAL_ZNACZNIKI", "portal-informacyjny,portal informacyjny").split(",")
+
+# --- Wysyłka (SMTP home.pl) — poranny raport ---
+EMAIL_HOST = os.environ.get("SMTP_HOST", IMAP_HOST)
+EMAIL_PORT = int(os.environ.get("SMTP_PORT", "465"))
+EMAIL_USE_SSL = EMAIL_PORT == 465
+EMAIL_USE_TLS = EMAIL_PORT == 587
+EMAIL_HOST_USER = os.environ.get("SMTP_USER", IMAP_USER)
+EMAIL_HOST_PASSWORD = os.environ.get("SMTP_HASLO", IMAP_HASLO)
+DEFAULT_FROM_EMAIL = os.environ.get("SMTP_OD", IMAP_USER or "kancelaria@localhost")
+RAPORT_ODBIORCY = [a.strip() for a in os.environ.get("RAPORT_ODBIORCY", "").split(",") if a.strip()]
+RAPORT_GODZINA = os.environ.get("RAPORT_GODZINA", "07:00")
+ASYSTENT_CO_MINUT = int(os.environ.get("ASYSTENT_CO_MINUT", "15"))
+ADRES_PROGRAMU = os.environ.get("ADRES_PROGRAMU", "")

@@ -1,0 +1,16 @@
+# Wersja w chmurze: program (www) + asystent w tle (poczta co 15 min, raport o 7:00).
+# Uruchomienie:  docker compose up -d --build
+services:
+  www:
+    build: .
+    env_file: .env
+    volumes: ["./dane:/dane"]
+    ports: ["127.0.0.1:8000:8000"]
+    restart: unless-stopped
+  asystent:
+    build: .
+    env_file: .env
+    volumes: ["./dane:/dane"]
+    command: ["python", "manage.py", "asystent"]
+    restart: unless-stopped
+    depends_on: [www]
