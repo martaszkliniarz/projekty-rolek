@@ -11,7 +11,6 @@ Autorski program dla jednoosobowej kancelarii adwokackiej (sprawy rodzinne i kar
 | **Chronologia i czas** | każda czynność z czasem trwania → suma dla sprawy, raport, eksport do Excela |
 | **Terminy** | lista z oznaczaniem „wykonane”, przypisanie do osoby (Pani / asystentka) |
 | **Kalkulator terminów** | KPC i KPK, soboty i święta, fikcja doręczenia (portal / awizo), gotowe presety (apelacja, zażalenie, kasacja…) — wynik zapisuje się w sprawie razem z wyliczeniem |
-| **Konflikt interesów** | wyszukiwanie osoby we wszystkich sprawach (klient / strona przeciwna / uczestnik) |
 | **Kalendarz Google** | wszystkie terminy jako subskrybowany kalendarz (tryb anonimowy — bez nazwisk) |
 | **Panel edycji** | dodawanie i poprawianie wszystkiego: sprawy, osoby, terminy, czynności, dokumenty |
 

@@ -1,9 +1,0 @@
-{% extends "base.html" %}{% block tytul %}Konflikt interesów{% endblock %}{% block tresc %}
-<h1>Sprawdzenie konfliktu interesów</h1>
-<form class="linia karta"><div><label>Imię i nazwisko, nazwa, PESEL lub NIP (min. 3 znaki)</label><input name="q" value="{{ q }}" size="40" autofocus></div><button>Sprawdź</button></form>
-{% if q|length >= 3 %}<div class="karta">
-{% if wyniki %}{% for o, udzialy in wyniki %}<p><b>{{ o }}</b> <span class="szary">{{ o.pesel }}</span></p><ul>
-{% for s, rola, przeciwna in udzialy %}<li>{% if przeciwna %}<b style="color:var(--czerwony)">⚔️ strona przeciwna</b> — {% endif %}{{ rola }} w <a href="{{ s.get_absolute_url }}">{{ s }}</a> ({{ s.get_status_display }})</li>{% empty %}<li class="szary">w kartotece, bez spraw</li>{% endfor %}</ul>{% endfor %}
-<div class="ostrzezenie">Znaleziono zbieżności — przeanalizuj przed przyjęciem sprawy (§ 22 Kodeksu Etyki Adwokackiej).</div>
-{% else %}<div class="komunikat">✓ Brak tej osoby w kartotece kancelarii.</div>{% endif %}</div>{% endif %}
-{% endblock %}

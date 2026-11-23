@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import CzynnoscForm, KalkulatorForm, TerminForm
 from .ics import kalendarz_ics
-from .models import Czynnosc, Osoba, Sprawa, Termin, Uczestnik, format_czas
+from .models import Czynnosc, Sprawa, Termin, format_czas
 from .terminy import PRESETY_PO_KODZIE, doreczenie_awizo, doreczenie_portal, fmt, oblicz_termin
 
 
@@ -162,23 +162,6 @@ def kalkulator(request):
         "sprawa": sprawa_obj, "termin_form": termin_form,
         "koniec_txt": fmt(wynik.koniec) if wynik else "",
     })
-
-
-@login_required
-def konflikt(request):
-    q = request.GET.get("q", "").strip()
-    wyniki = []
-    if len(q) >= 3:
-        osoby = Osoba.objects.filter(
-            Q(nazwa__icontains=q) | Q(nazwisko_rodowe__icontains=q) | Q(pesel=q) | Q(nip=q)
-        )
-        for o in osoby:
-            udzialy = [(s, f"klient ({s.rola_klienta})" if s.rola_klienta else "klient", False)
-                       for s in o.sprawy_klienta.all()]
-            udzialy += [(u.sprawa, u.rola, u.strona_przeciwna)
-                        for u in Uczestnik.objects.filter(osoba=o).select_related("sprawa")]
-            wyniki.append((o, udzialy))
-    return render(request, "sprawy/konflikt.html", {"q": q, "wyniki": wyniki})
 
 
 @login_required

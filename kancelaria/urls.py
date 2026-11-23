@@ -15,7 +15,6 @@ urlpatterns = [
     path("terminy/<int:pk>/status/", views.termin_status, name="termin_status"),
     path("czynnosci/<int:pk>/potwierdz/", views.czynnosc_potwierdz, name="czynnosc_potwierdz"),
     path("kalkulator/", views.kalkulator, name="kalkulator"),
-    path("konflikt/", views.konflikt, name="konflikt"),
     path("czas/", views.raport_czasu, name="raport_czasu"),
     path("kalendarz/<str:token>.ics", views.kalendarz, name="kalendarz"),
     path("logowanie/", auth_views.LoginView.as_view(), name="login"),

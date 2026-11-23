@@ -114,7 +114,7 @@ class WidokiTest(DaneMixin, TestCase):
         Termin.objects.create(sprawa=self.sprawa, opis="Apelacja", data=date.today() + timedelta(days=3))
         Termin.objects.create(sprawa=self.sprawa, opis="Zaległy", data=date.today() - timedelta(days=2))
         for nazwa, args in [("pulpit", []), ("lista_spraw", []), ("sprawa", [self.sprawa.pk]),
-                            ("terminy", []), ("kalkulator", []), ("konflikt", []), ("raport_czasu", [])]:
+                            ("terminy", []), ("kalkulator", []), ("raport_czasu", [])]:
             r = self.client.get(reverse(nazwa, args=args))
             self.assertEqual(r.status_code, 200, nazwa)
         self.assertContains(self.client.get(reverse("pulpit")), "2 dni po terminie")
@@ -151,13 +151,6 @@ class WidokiTest(DaneMixin, TestCase):
         self.client.post(reverse("termin_status", args=[t.pk]), {"status": "wykonany"})
         t.refresh_from_db()
         self.assertEqual((t.status, t.wykonano), ("wykonany", date.today()))
-
-    def test_konflikt(self):
-        maz = Osoba.objects.create(nazwa="Jan Kowalski")
-        Uczestnik.objects.create(sprawa=self.sprawa, osoba=maz, rola="pozwany", strona_przeciwna=True)
-        r = self.client.get(reverse("konflikt"), {"q": "kowalski"})
-        self.assertContains(r, "strona przeciwna")
-        self.assertContains(self.client.get(reverse("konflikt"), {"q": "Nowak"}), "Brak tej osoby")
 
     def test_csv(self):
         Czynnosc.objects.create(sprawa=self.sprawa, opis="pozew", czas_min=90, data=date.today())

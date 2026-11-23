@@ -8,8 +8,7 @@ from django.urls import reverse
 
 
 class Osoba(models.Model):
-    """Każda osoba lub podmiot: klient, strona przeciwna, świadek, pokrzywdzony…
-    Jedna wspólna kartoteka pozwala sprawdzać konflikt interesów."""
+    """Każda osoba lub podmiot: klient, strona przeciwna, świadek, pokrzywdzony…"""
 
     class Typ(models.TextChoices):
         FIZYCZNA = "fizyczna", "osoba fizyczna"
@@ -132,7 +131,7 @@ class Postepowanie(models.Model):
 
 
 class Uczestnik(models.Model):
-    """Pozostałe osoby w sprawie (do sprawdzania konfliktu interesów)."""
+    """Pozostałe osoby w sprawie (strona przeciwna, małoletni, świadkowie…)."""
 
     sprawa = models.ForeignKey(Sprawa, on_delete=models.CASCADE, related_name="uczestnicy")
     osoba = models.ForeignKey(Osoba, on_delete=models.PROTECT, related_name="udzialy")

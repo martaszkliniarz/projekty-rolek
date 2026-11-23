@@ -1,7 +1,7 @@
 # Plan rozwoju
 
 ## ✅ Etap 1 — fundament
-Kartoteka spraw, chronologia z czasem pracy, terminy i kalkulator (KPC/KPK), konflikt interesów,
+Kartoteka spraw, chronologia z czasem pracy, terminy i kalkulator (KPC/KPK),
 raport czasu (CSV), kalendarz .ics dla Google, wersja lokalna i chmurowa.
 
 ## Etap 2 — poczta, portal, Google i poranny raport
