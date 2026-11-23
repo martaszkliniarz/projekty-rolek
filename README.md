@@ -12,6 +12,7 @@ Autorski program dla jednoosobowej kancelarii adwokackiej (sprawy rodzinne i kar
 | **Terminy** | lista z oznaczaniem „wykonane”, przypisanie do osoby (Pani / asystentka) |
 | **Kalkulator terminów** | KPC i KPK, soboty i święta, fikcja doręczenia (portal / awizo), gotowe presety (apelacja, zażalenie, kasacja…) — wynik zapisuje się w sprawie razem z wyliczeniem |
 | **Kalendarz Google** | wszystkie terminy jako subskrybowany kalendarz (tryb anonimowy — bez nazwisk) |
+| **Mediacje** | osobny rejestr — jako mediator albo pełnomocnik; rodzinne, karne, cywilne, gospodarcze i umowne; strony, skierowanie i termin na mediację, posiedzenia, czas pracy, wynik i ugoda, przypomnienie o protokole, wynagrodzenie mediatora |
 | **Wpływy** | jedna skrzynka na wszystko z poczty i portalu, automatycznie przypisane do sprawy po sygnaturze; jednym kliknięciem do chronologii (i do kalkulatora terminu) |
 | **Odczyt poczty** | kancelaria@ w home.pl — powiadomienia z portalu i maile z sygnaturami spraw; skrzynka tylko do odczytu |
 | **Poranny raport** | w dni robocze o 7:00 e-mailem: terminy po czasie, na dziś, na tydzień, nowe wpływy i doręczenia |

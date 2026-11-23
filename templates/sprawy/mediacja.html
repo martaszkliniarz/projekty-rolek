@@ -1,0 +1,51 @@
+{% extends "base.html" %}{% block tytul %}{{ m.numer }} {{ m.tytul }}{% endblock %}{% block tresc %}
+<p class="szary"><a href="{% url 'lista_mediacji' %}">← mediacje</a></p>
+<h1>🤝 {{ m.tytul }} <span class="znacznik">{{ m.numer }}</span> <span class="znacznik">{{ m.get_status_display }}</span>
+  <a class="przycisk jasny" style="font-size:13px" href="{% url 'admin:sprawy_mediacja_change' m.pk %}">edytuj mediację</a></h1>
+<p class="szary">🔒 Mediacja jest poufna — notatki i treść ustaleń nie trafiają do kalendarza Google ani do raportów e-mail.</p>
+{% if m.protokol_do_zlozenia %}<div class="ostrzezenie">Mediacja zakończona — protokół do złożenia w {% if m.podstawa == 'prokurator' %}prokuraturze / sądzie{% else %}sądzie{% endif %}.</div>{% endif %}
+<div class="siatka">
+<div class="karta"><h2>Mediacja</h2>
+  <p><b>{{ m.get_rola_display }}</b><br>{{ m.get_dziedzina_display }} · {{ m.get_podstawa_display }}</p>
+  {% if m.organ or m.sygnatura %}<p>{{ m.organ }}{% if m.sygnatura %}<br>sygn. <b>{{ m.sygnatura }}</b>{% endif %}</p>{% endif %}
+  <p class="szary">{% if m.data_skierowania %}skierowanie/umowa: {{ m.data_skierowania|date:"d.m.Y" }}<br>{% endif %}
+  {% if m.termin_do %}termin na mediację: <b>{{ m.termin_do|date:"d.m.Y" }}</b>{% if m.aktywna %} ({% if m.dni_do_konca < 0 %}minął{% else %}za {{ m.dni_do_konca }} dni{% endif %}){% endif %}{% endif %}</p>
+  {% if m.rola == 'pelnomocnik' %}<p>Mediator: {{ m.mediator|default:"—" }}{% if m.sprawa %}<br>Sprawa: <a href="{{ m.sprawa.get_absolute_url }}">{{ m.sprawa }}</a>{% endif %}</p>{% endif %}
+</div>
+<div class="karta"><h2>Strony</h2><ul>{% for s in strony %}<li>{% if s.moj_klient %}⭐ {% endif %}<b>{{ s.osoba }}</b> — {{ s.rola }}
+  {% if s.osoba.telefon %}<br>📞 {{ s.osoba.telefon }}{% endif %}{% if s.osoba.email %}<br>✉️ <a href="mailto:{{ s.osoba.email }}">{{ s.osoba.email }}</a>{% endif %}
+  {% if s.pelnomocnik %}<br><span class="szary">pełn.: {{ s.pelnomocnik }}</span>{% endif %}</li>{% empty %}<li class="szary">Dodaj strony w „edytuj mediację”.</li>{% endfor %}</ul></div>
+<div class="karta"><h2>Rozliczenie</h2>
+  <p>Czas pracy: <b>{{ czas }}</b></p>
+  {% if m.wynagrodzenie or m.wydatki or m.platnik %}<p>{% if m.wynagrodzenie %}wynagrodzenie: {{ m.wynagrodzenie }} zł<br>{% endif %}{% if m.wydatki %}wydatki: {{ m.wydatki }} zł<br>{% endif %}{% if m.platnik %}<span class="szary">płaci: {{ m.platnik }}</span>{% endif %}</p>{% endif %}
+  <p class="szary">{% if m.data_wniosku_koszty %}wniosek/rachunek: {{ m.data_wniosku_koszty|date:"d.m.Y" }}<br>{% endif %}{% if m.data_zaplaty %}✓ zapłacono {{ m.data_zaplaty|date:"d.m.Y" }}{% elif m.status == 'zakonczona' and m.rola == 'mediator' %}⏳ nierozliczona{% endif %}</p>
+</div></div>
+{% if m.przedmiot %}<div class="karta"><h2>Przedmiot mediacji</h2>{{ m.przedmiot|linebreaks }}</div>{% endif %}
+
+<div class="karta"><h2>Posiedzenia</h2>
+<table>{% for p, f in planowane %}<tr><td style="white-space:nowrap"><b>{{ p.data|date:"d.m.Y" }}</b>{% if p.godzina %} {{ p.godzina|time:"H:i" }}{% endif %}</td>
+<td>{{ p.get_rodzaj_display }}{% if p.z_kim %} — {{ p.z_kim }}{% endif %}{% if p.miejsce %}<br><span class="szary">📍 {{ p.miejsce }}</span>{% endif %}</td>
+<td><form method="post" class="linia">{% csrf_token %}<input type="hidden" name="odbyte" value="{{ p.pk }}">
+  <div><label>czas</label>{{ f.godziny }} h {{ f.minuty }} min</div><div style="flex:1;min-width:200px"><label>notatka (poufna)</label>{{ f.notatka }}</div>
+  <button>✓ odbyte</button></form></td></tr>
+{% empty %}<tr><td class="szary">Brak zaplanowanych posiedzeń.</td></tr>{% endfor %}</table>
+<details style="margin-top:10px"><summary>+ zaplanuj posiedzenie</summary>
+<form method="post" style="margin-top:10px">{% csrf_token %}<div style="display:flex;gap:8px;flex-wrap:wrap">{% for f in posiedzenie_form %}<p><label>{{ f.label }}</label>{{ f }}{{ f.errors }}</p>{% endfor %}</div>
+<button name="dodaj_posiedzenie">Zapisz</button></form></details>
+{% if odbyte %}<h2 style="margin-top:16px">Odbyte</h2><table>{% for p in odbyte %}<tr><td style="white-space:nowrap">{{ p.data|date:"d.m.Y" }}</td><td>{{ p.get_rodzaj_display }}{% if p.z_kim %} — {{ p.z_kim }}{% endif %}{% if p.notatka %}<br><span class="szary">{{ p.notatka|linebreaksbr }}</span>{% endif %}</td><td style="white-space:nowrap">{{ p.czas_min|default:0 }} min</td></tr>{% endfor %}</table>{% endif %}
+</div>
+
+<div class="karta"><h2>Chronologia — pozostałe czynności</h2>
+<form method="post" class="karta" style="background:var(--tlo)">{% csrf_token %}
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><p><label>Data</label>{{ wpis_form.data }}</p><p><label>Czas</label>{{ wpis_form.godziny }} h {{ wpis_form.minuty }} min</p></div>
+<p><label>Co zostało zrobione (telefon, korespondencja, protokół, ugoda…)</label>{{ wpis_form.opis }}{{ wpis_form.opis.errors }}</p>
+<button name="dodaj_wpis">Dodaj</button></form>
+<table>{% for w in wpisy %}<tr><td style="white-space:nowrap">{{ w.data|date:"d.m.Y" }}</td><td>{{ w.opis|linebreaksbr }}</td><td style="white-space:nowrap">{{ w.czas_txt }}</td></tr>{% empty %}<tr><td class="szary">Brak wpisów.</td></tr>{% endfor %}</table></div>
+
+<div class="karta"><h2>Wynik mediacji</h2>
+<form method="post">{% csrf_token %}<div style="display:flex;gap:8px;flex-wrap:wrap">
+<p><label>Wynik</label>{{ zakonczenie_form.wynik }}</p><p><label>Data zakończenia</label>{{ zakonczenie_form.data_zakonczenia }}</p>
+<p><label>Protokół złożony dnia</label>{{ zakonczenie_form.data_protokolu }}</p></div>
+<p><label>Ustalenia / treść ugody (poufne)</label>{{ zakonczenie_form.tresc_ugody }}</p>
+<button name="zakoncz">Zapisz wynik</button></form></div>
+{% endblock %}

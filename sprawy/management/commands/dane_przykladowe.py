@@ -3,7 +3,8 @@ from datetime import date, time, timedelta
 
 from django.core.management.base import BaseCommand
 
-from sprawy.models import Czynnosc, Osoba, Postepowanie, Sprawa, Termin, Uczestnik, Wplyw
+from sprawy.models import (Czynnosc, Mediacja, Osoba, Posiedzenie, Postepowanie, Sprawa, StronaMediacji, Termin,
+                           Uczestnik, WpisMediacji, Wplyw)
 
 
 class Command(BaseCommand):
@@ -50,4 +51,20 @@ class Command(BaseCommand):
         Wplyw.objects.create(zrodlo="poczta", rodzaj="email", zewn_id="demo:3", data=d,
                              nadawca="kancelaria-przeciwnika@example.com", tytul="Propozycja ugody – III RC 77/26",
                              tresc="Szanowna Pani Mecenas, w imieniu mojego klienta…", sygnatura="III RC 77/26")
+        m1 = Mediacja.objects.create(tytul="Wzorowa / Wzorowy – kontakty z dzieckiem", rola="mediator", dziedzina="rodzinna",
+                                     podstawa="sad", organ="Sąd Rejonowy, III Wydział Rodzinny", sygnatura="III Nsm 50/26",
+                                     data_skierowania=d - timedelta(days=75), termin_do=d + timedelta(days=10),
+                                     przedmiot="Ustalenie kontaktów ojca z małoletnią córką (6 lat).",
+                                     platnik="strony po połowie", status="w_toku")
+        for nazwa, rola in [("Ewa Wzorowa", "wnioskodawczyni"), ("Piotr Wzorowy", "uczestnik")]:
+            StronaMediacji.objects.create(mediacja=m1, osoba=Osoba.objects.create(nazwa=nazwa), rola=rola)
+        Posiedzenie.objects.create(mediacja=m1, data=d - timedelta(days=30), rodzaj="wstepne", odbyte=True, czas_min=60,
+                                   z_kim="Ewa Wzorowa")
+        Posiedzenie.objects.create(mediacja=m1, data=d + timedelta(days=3), godzina=time(16, 0), rodzaj="wspolne",
+                                   miejsce="kancelaria")
+        WpisMediacji.objects.create(mediacja=m1, data=d - timedelta(days=60), opis="Kontakt telefoniczny ze stronami", czas_min=30)
+        m2 = Mediacja.objects.create(tytul="Fikcyjny – mediacja z pokrzywdzonym", rola="pelnomocnik", dziedzina="karna",
+                                     podstawa="prokurator", sprawa=s2, mediator="mediator X (fikcyjny)",
+                                     data_skierowania=d - timedelta(days=5), termin_do=d + timedelta(days=40))
+        StronaMediacji.objects.create(mediacja=m2, osoba=tomasz, rola="podejrzany", moj_klient=True)
         self.stdout.write(self.style.SUCCESS("Dodano dane przykładowe."))

@@ -20,7 +20,7 @@ def _fold(line: str) -> str:
     return "\r\n".join(out)
 
 
-def kalendarz_ics(terminy, nazwa="Kancelaria – terminy", anonimowy=True) -> str:
+def kalendarz_ics(terminy, nazwa="Kancelaria – terminy", anonimowy=True, posiedzenia=()) -> str:
     """anonimowy=True: w kalendarzu tylko nr sprawy i rodzaj terminu, bez nazwisk
     i sygnatur (tajemnica adwokacka — dane trafiają na serwery Google)."""
     teraz = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -57,6 +57,19 @@ def kalendarz_ics(terminy, nazwa="Kancelaria – terminy", anonimowy=True) -> st
             linie.append(f"LOCATION:{_esc(t.miejsce)}")
         if t.status == "anulowany":
             linie.append("STATUS:CANCELLED")
+        linie.append("END:VEVENT")
+    for p in posiedzenia:  # mediacje — zawsze anonimowo (poufność mediacji)
+        linie += ["BEGIN:VEVENT", f"UID:{p.uid}@kancelaria", f"DTSTAMP:{teraz}"]
+        if p.godzina:
+            start = datetime.combine(p.data, p.godzina)
+            linie += [f"DTSTART;TZID=Europe/Warsaw:{start:%Y%m%dT%H%M%S}",
+                      f"DTEND;TZID=Europe/Warsaw:{start + timedelta(hours=2):%Y%m%dT%H%M%S}"]
+        else:
+            linie += [f"DTSTART;VALUE=DATE:{p.data:%Y%m%d}",
+                      f"DTEND;VALUE=DATE:{p.data + timedelta(days=1):%Y%m%d}"]
+        linie += [f"SUMMARY:{_esc('🤝 Mediacja ' + p.mediacja.numer + ' – ' + p.get_rodzaj_display())}"]
+        if p.miejsce:
+            linie.append(f"LOCATION:{_esc(p.miejsce)}")
         linie.append("END:VEVENT")
     linie.append("END:VCALENDAR")
     return "\r\n".join(_fold(l) for l in linie) + "\r\n"

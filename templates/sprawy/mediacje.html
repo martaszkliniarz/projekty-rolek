@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block tytul %}Mediacje{% endblock %}{% block tresc %}
+<h1>🤝 Mediacje <a class="przycisk" style="font-size:14px;margin-left:10px" href="{% url 'admin:sprawy_mediacja_add' %}">+ nowa mediacja</a></h1>
+{% if alarmy %}<div class="karta"><h2>⚠️ Do uwagi</h2><ul>{% for m, txt in alarmy %}<li><a href="{{ m.get_absolute_url }}">{{ m }}</a> — {{ txt }}</li>{% endfor %}</ul></div>{% endif %}
+<form class="linia karta" method="get">
+  <div><label>Szukaj (nazwa, strona, sygnatura)</label><input name="q" value="{{ q }}" size="30"></div>
+  <div><label>Pokaż</label><select name="widok">
+    <option value="aktywne" {% if widok == 'aktywne' %}selected{% endif %}>w toku</option>
+    <option value="zakonczone" {% if widok == 'zakonczone' %}selected{% endif %}>zakończone</option>
+    <option value="wszystkie" {% if widok == 'wszystkie' %}selected{% endif %}>wszystkie</option></select></div>
+  <div><label>Moja rola</label><select name="rola"><option value="">obie</option>{% for k, v in role %}<option value="{{ k }}" {% if k == rola %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+  <button>Filtruj</button></form>
+<div class="karta"><table><tr><th>Nr</th><th>Mediacja</th><th>Strony</th><th>Rola</th><th>Rodzaj</th><th>Termin na mediację</th><th>Status</th></tr>
+{% for m in mediacje %}<tr><td>{{ m.numer }}</td><td><a href="{{ m.get_absolute_url }}">{{ m.tytul }}</a>{% if m.sygnatura %}<br><span class="szary">{{ m.sygnatura }}</span>{% endif %}</td>
+<td class="szary">{% for s in m.strony.all %}{{ s.osoba }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+<td>{% if m.rola == 'mediator' %}mediator{% else %}pełnomocnik{% endif %}</td>
+<td>{{ m.get_dziedzina_display }}<br><span class="szary">{{ m.get_podstawa_display }}</span></td>
+<td>{% if m.termin_do %}{{ m.termin_do|date:"d.m.Y" }}{% if m.aktywna and m.dni_do_konca is not None and m.dni_do_konca <= 14 %} <span class="znacznik" style="background:var(--pomaranczowy-tlo);color:var(--pomaranczowy)">{% if m.dni_do_konca < 0 %}minął{% else %}za {{ m.dni_do_konca }} dni{% endif %}</span>{% endif %}{% else %}<span class="szary">—</span>{% endif %}</td>
+<td>{{ m.get_status_display }}{% if m.wynik %}<br><span class="szary">{{ m.get_wynik_display }}</span>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="7" class="szary">Brak mediacji.</td></tr>{% endfor %}</table></div>
+{% if nierozliczone %}<div class="karta"><h2>💰 Zakończone, nierozliczone (mediator)</h2><ul>{% for m in nierozliczone %}<li><a href="{{ m.get_absolute_url }}">{{ m }}</a>{% if m.wynagrodzenie %} — {{ m.wynagrodzenie }} zł{% endif %}{% if m.data_wniosku_koszty %} <span class="szary">(wniosek z {{ m.data_wniosku_koszty|date:"d.m.Y" }})</span>{% endif %}</li>{% endfor %}</ul></div>{% endif %}
+{% endblock %}

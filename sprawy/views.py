@@ -11,10 +11,25 @@ from django.urls import reverse
 from django.utils.crypto import constant_time_compare
 from django.views.decorators.http import require_POST
 
-from .forms import CzynnoscForm, KalkulatorForm, TerminForm
+from .forms import (CzynnoscForm, KalkulatorForm, OdbyteForm, PosiedzenieForm, TerminForm, WpisMediacjiForm,
+                    ZakonczenieForm)
 from .ics import kalendarz_ics
-from .models import Czynnosc, Sprawa, Termin, Wplyw, format_czas
+from .models import Czynnosc, Mediacja, Posiedzenie, Sprawa, Termin, Wplyw, format_czas
 from .terminy import PRESETY_PO_KODZIE, doreczenie_awizo, doreczenie_portal, fmt, oblicz_termin
+
+
+def mediacje_alarmy(dzis):
+    """Mediacje wymagające uwagi: kończący się termin i niezłożone protokoły."""
+    alarmy = []
+    for m in Mediacja.objects.filter(status__in=[Mediacja.Status.SKIEROWANA, Mediacja.Status.W_TOKU],
+                                     termin_do__isnull=False, termin_do__lte=dzis + timedelta(days=14)):
+        d = m.dni_do_konca
+        alarmy.append((m, f"termin na mediację {'minął' if d < 0 else 'upływa'} {m.termin_do:%d.%m.%Y}"
+                          + (f" (za {d} dni)" if d > 0 else " (dziś)" if d == 0 else "")))
+    for m in Mediacja.objects.exclude(wynik="").filter(data_protokolu__isnull=True, rola=Mediacja.Rola.MEDIATOR) \
+            .exclude(podstawa=Mediacja.Podstawa.UMOWA):
+        alarmy.append((m, "protokół do złożenia w sądzie / u prokuratora"))
+    return alarmy
 
 
 @login_required
@@ -35,6 +50,9 @@ def pulpit(request):
         "nowe_wplywy": Wplyw.objects.filter(status=Wplyw.Status.NOWY).count(),
         "doreczenia": Wplyw.objects.filter(status=Wplyw.Status.NOWY, rodzaj=Wplyw.Rodzaj.DORECZENIE).count(),
         "ostatnie": Czynnosc.objects.select_related("sprawa", "wykonal")[:10],
+        "posiedzenia": Posiedzenie.objects.filter(odbyte=False, data__gte=dzis, data__lte=dzis + timedelta(days=7))
+            .select_related("mediacja"),
+        "mediacje_alarmy": mediacje_alarmy(dzis),
         "bez_ruchu": Sprawa.objects.filter(status=Sprawa.Status.AKTYWNA)
             .exclude(czynnosci__data__gte=dzis - timedelta(days=30))
             .exclude(terminy__status=Termin.Status.OTWARTY)[:10],
@@ -213,6 +231,87 @@ def wplyw_akcja(request, pk):
 
 
 @login_required
+def lista_mediacji(request):
+    q = request.GET.get("q", "").strip()
+    widok = request.GET.get("widok", "aktywne")
+    rola = request.GET.get("rola", "")
+    qs = Mediacja.objects.prefetch_related("strony__osoba")
+    if widok == "aktywne":
+        qs = qs.filter(status__in=[Mediacja.Status.SKIEROWANA, Mediacja.Status.W_TOKU])
+    elif widok == "zakonczone":
+        qs = qs.filter(status__in=[Mediacja.Status.ZAKONCZONA, Mediacja.Status.ROZLICZONA])
+    if rola:
+        qs = qs.filter(rola=rola)
+    if q:
+        qs = qs.filter(Q(tytul__icontains=q) | Q(numer__icontains=q) | Q(sygnatura__icontains=q)
+                       | Q(strony__osoba__nazwa__icontains=q)).distinct()
+    dzis = date.today()
+    return render(request, "sprawy/mediacje.html", {
+        "mediacje": qs, "q": q, "widok": widok, "rola": rola, "role": Mediacja.Rola.choices,
+        "nierozliczone": Mediacja.objects.filter(rola=Mediacja.Rola.MEDIATOR, status=Mediacja.Status.ZAKONCZONA,
+                                                 data_zaplaty__isnull=True),
+        "alarmy": mediacje_alarmy(dzis),
+    })
+
+
+@login_required
+def mediacja(request, pk):
+    m = get_object_or_404(Mediacja.objects.select_related("sprawa"), pk=pk)
+    posiedzenie_form = PosiedzenieForm(prefix="p")
+    wpis_form = WpisMediacjiForm(prefix="w")
+    zakonczenie_form = ZakonczenieForm(prefix="z", instance=m)
+    if request.method == "POST":
+        if "dodaj_posiedzenie" in request.POST:
+            posiedzenie_form = PosiedzenieForm(request.POST, prefix="p")
+            if posiedzenie_form.is_valid():
+                p = posiedzenie_form.save(commit=False)
+                p.mediacja = m
+                p.save()
+                messages.success(request, f"Zaplanowano posiedzenie {p.data:%d.%m.%Y}.")
+                return redirect(m)
+        elif "dodaj_wpis" in request.POST:
+            wpis_form = WpisMediacjiForm(request.POST, prefix="w")
+            if wpis_form.is_valid():
+                w = wpis_form.save(commit=False)
+                w.mediacja, w.wykonal, w.czas_min = m, request.user, wpis_form.minuty_lacznie()
+                w.save()
+                messages.success(request, "Dodano wpis.")
+                return redirect(m)
+        elif "odbyte" in request.POST:
+            p = get_object_or_404(Posiedzenie, pk=request.POST["odbyte"], mediacja=m)
+            f = OdbyteForm(request.POST, prefix=f"o{p.pk}")
+            if f.is_valid():
+                p.odbyte, p.czas_min = True, f.minuty_lacznie()
+                if f.cleaned_data["notatka"]:
+                    p.notatka = f.cleaned_data["notatka"]
+                p.save()
+                if m.status == Mediacja.Status.SKIEROWANA:
+                    m.status = Mediacja.Status.W_TOKU
+                    m.save(update_fields=["status"])
+                messages.success(request, "Posiedzenie oznaczone jako odbyte.")
+                return redirect(m)
+        elif "zakoncz" in request.POST:
+            zakonczenie_form = ZakonczenieForm(request.POST, prefix="z", instance=m)
+            if zakonczenie_form.is_valid():
+                m = zakonczenie_form.save(commit=False)
+                if m.wynik and m.aktywna:
+                    m.status = Mediacja.Status.ZAKONCZONA
+                    m.data_zakonczenia = m.data_zakonczenia or date.today()
+                m.save()
+                messages.success(request, "Zapisano wynik mediacji.")
+                return redirect(m)
+    posiedzenia = m.posiedzenia.all()
+    return render(request, "sprawy/mediacja.html", {
+        "m": m, "strony": m.strony.select_related("osoba"),
+        "planowane": [(p, OdbyteForm(prefix=f"o{p.pk}")) for p in posiedzenia if not p.odbyte],
+        "odbyte": [p for p in posiedzenia if p.odbyte],
+        "wpisy": m.wpisy.select_related("wykonal"),
+        "czas": format_czas(m.czas_minuty()),
+        "posiedzenie_form": posiedzenie_form, "wpis_form": wpis_form, "zakonczenie_form": zakonczenie_form,
+    })
+
+
+@login_required
 def raport_czasu(request):
     od = request.GET.get("od") or date.today().replace(day=1).isoformat()
     do = request.GET.get("do") or date.today().isoformat()
@@ -234,7 +333,16 @@ def raport_czasu(request):
                   .annotate(suma=Sum("czas_min")).order_by("-suma"))
     for r in per_sprawa:
         r["czas"] = format_czas(r["suma"])
+    med = {}
+    if not request.GET.get("sprawa"):
+        for p in Posiedzenie.objects.filter(odbyte=True, data__gte=od, data__lte=do).select_related("mediacja"):
+            med[p.mediacja] = med.get(p.mediacja, 0) + p.czas_min
+        from .models import WpisMediacji
+        for w in WpisMediacji.objects.filter(data__gte=od, data__lte=do).select_related("mediacja"):
+            med[w.mediacja] = med.get(w.mediacja, 0) + w.czas_min
     return render(request, "sprawy/raport_czasu.html", {
+        "per_mediacja": [(m, format_czas(v)) for m, v in sorted(med.items(), key=lambda x: -x[1]) if v],
+        "suma_mediacje": format_czas(sum(med.values())),
         "od": od, "do": do, "per_sprawa": per_sprawa,
         "suma": format_czas(qs.aggregate(s=Sum("czas_min"))["s"] or 0),
         "sprawy": Sprawa.objects.filter(status=Sprawa.Status.AKTYWNA),
@@ -249,4 +357,6 @@ def kalendarz(request, token):
     od = date.today() - timedelta(days=60)
     qs = (Termin.objects.filter(data__gte=od).exclude(status=Termin.Status.WYKONANY)
           .select_related("sprawa").prefetch_related("sprawa__postepowania"))
-    return HttpResponse(kalendarz_ics(qs, anonimowy=settings.KALENDARZ_ANONIMOWY), content_type="text/calendar; charset=utf-8")
+    posiedzenia = Posiedzenie.objects.filter(data__gte=od, odbyte=False).select_related("mediacja")
+    return HttpResponse(kalendarz_ics(qs, anonimowy=settings.KALENDARZ_ANONIMOWY, posiedzenia=posiedzenia),
+                        content_type="text/calendar; charset=utf-8")

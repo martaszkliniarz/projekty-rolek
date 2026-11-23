@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from django.conf import settings
 from django.core.mail import send_mail
 
-from .models import Czynnosc, Termin, Wplyw
+from .models import Czynnosc, Posiedzenie, Termin, Wplyw
 
 
 def _termin(t):
@@ -27,6 +27,18 @@ def tresc_raportu(dzis: date | None = None) -> tuple[str, str]:
         linie += ["⚠️ TERMINY PO CZASIE — PILNE:"] + [_termin(t) for t in zalegle] + [""]
     linie += ["DZIŚ:"] + ([_termin(t) for t in na_dzis] or ["  brak"]) + [""]
     linie += ["NAJBLIŻSZE 7 DNI:"] + ([_termin(t) for t in tydzien] or ["  brak"]) + [""]
+    posiedzenia = Posiedzenie.objects.filter(odbyte=False, data__gte=dzis, data__lte=dzis + timedelta(days=7)) \
+        .select_related("mediacja")
+    if posiedzenia:
+        linie.append("MEDIACJE — POSIEDZENIA (7 dni):")
+        for p in posiedzenia:
+            godz = f" {p.godzina:%H:%M}" if p.godzina else ""
+            linie.append(f"  • {p.data:%d.%m}{godz} — {p.get_rodzaj_display()} [{p.mediacja.numer}]")
+        linie.append("")
+    from .views import mediacje_alarmy
+    alarmy = mediacje_alarmy(dzis)
+    if alarmy:
+        linie += ["MEDIACJE — DO UWAGI:"] + [f"  • {m.numer}: {txt}" for m, txt in alarmy] + [""]
     linie.append(f"NOWE WPŁYWY (poczta i portal): {len(wplywy)}")
     for w in wplywy[:30]:
         gdzie = w.sprawa.numer if w.sprawa else "NIEPRZYPISANY"

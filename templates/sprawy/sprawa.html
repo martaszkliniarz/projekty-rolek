@@ -13,6 +13,7 @@
 <div class="karta"><h2>Postępowania</h2>{% for p in postepowania %}<p><b>{{ p.sygnatura|default:"(bez sygnatury)" }}</b> {% if not p.aktywne %}<span class="znacznik">zakończone</span>{% endif %}<br>{{ p.organ }}<br><span class="szary">{{ p.instancja }}{% if p.referent %} · ref. {{ p.referent }}{% endif %}</span></p>{% empty %}<p class="szary">Brak — dodaj w „edytuj sprawę”.</p>{% endfor %}</div>
 <div class="karta"><h2>Uczestnicy</h2><ul>{% for u in uczestnicy %}<li>{% if u.strona_przeciwna %}⚔️ {% endif %}{{ u.osoba }} — {{ u.rola }}{% if u.pelnomocnik %}<br><span class="szary">pełn.: {{ u.pelnomocnik }}</span>{% endif %}</li>{% empty %}<li class="szary">Brak.</li>{% endfor %}</ul></div>
 </div>
+{% for m in s.mediacje.all %}<div class="komunikat">🤝 W tej sprawie toczy się mediacja: <a href="{{ m.get_absolute_url }}">{{ m }}</a> ({{ m.get_status_display }})</div>{% endfor %}
 {% if s.opis or s.strategia %}<div class="karta"><h2>Stan sprawy</h2>{{ s.opis|linebreaks }}{% if s.strategia %}<h2>Strategia</h2>{{ s.strategia|linebreaks }}{% endif %}</div>{% endif %}
 
 <div class="karta"><h2>Terminy <a class="przycisk jasny" style="font-size:13px" href="{% url 'kalkulator' %}?sprawa={{ s.pk }}">🧮 oblicz termin</a></h2>

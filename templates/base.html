@@ -9,6 +9,7 @@
   {% with n=request.resolver_match.url_name %}
   <a href="{% url 'pulpit' %}" class="{% if n == 'pulpit' %}akt{% endif %}">Pulpit</a>
   <a href="{% url 'lista_spraw' %}" class="{% if n == 'lista_spraw' or n == 'sprawa' %}akt{% endif %}">Sprawy</a>
+  <a href="{% url 'lista_mediacji' %}" class="{% if n == 'lista_mediacji' or n == 'mediacja' %}akt{% endif %}">Mediacje</a>
   <a href="{% url 'wplywy' %}" class="{% if n == 'wplywy' %}akt{% endif %}">Wpływy</a>
   <a href="{% url 'terminy' %}" class="{% if n == 'terminy' %}akt{% endif %}">Terminy</a>
   <a href="{% url 'kalkulator' %}" class="{% if n == 'kalkulator' %}akt{% endif %}">Kalkulator</a>

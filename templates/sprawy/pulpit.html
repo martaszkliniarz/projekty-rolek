@@ -13,6 +13,10 @@
 {% if zalegle %}<div class="karta"><h2>⚠️ Po terminie — sprawdź!</h2><table>{% for t in zalegle %}{% include "sprawy/_termin.html" with pokaz_sprawe=1 %}{% endfor %}</table></div>{% endif %}
 <div class="karta"><h2>Dziś</h2>{% if na_dzis %}<table>{% for t in na_dzis %}{% include "sprawy/_termin.html" with pokaz_sprawe=1 %}{% endfor %}</table>{% else %}<p class="szary">Brak terminów na dziś.</p>{% endif %}</div>
 <div class="karta"><h2>Najbliższe 7 dni</h2>{% if tydzien %}<table>{% for t in tydzien %}{% include "sprawy/_termin.html" with pokaz_sprawe=1 %}{% endfor %}</table>{% else %}<p class="szary">Nic w najbliższym tygodniu.</p>{% endif %}</div>
+{% if posiedzenia or mediacje_alarmy %}<div class="karta"><h2>🤝 Mediacje</h2>
+{% for m, txt in mediacje_alarmy %}<div class="ostrzezenie"><a href="{{ m.get_absolute_url }}">{{ m }}</a> — {{ txt }}</div>{% endfor %}
+{% if posiedzenia %}<table>{% for p in posiedzenia %}<tr><td style="white-space:nowrap"><b>{{ p.data|date:"d.m.Y" }}</b>{% if p.godzina %} {{ p.godzina|time:"H:i" }}{% endif %}</td><td>{{ p.get_rodzaj_display }}{% if p.z_kim %} — {{ p.z_kim }}{% endif %}<br><a href="{{ p.mediacja.get_absolute_url }}">{{ p.mediacja }}</a></td><td class="szary">{{ p.miejsce }}</td></tr>{% endfor %}</table>{% endif %}
+</div>{% endif %}
 <div class="siatka">
 <div class="karta"><h2>Za 8–30 dni</h2>{% if miesiac %}<table>{% for t in miesiac %}<tr class="{{ t.pilnosc }}"><td>{{ t.data|date:"d.m" }}</td><td>{{ t.opis }}<br><a class="szary" href="{{ t.sprawa.get_absolute_url }}">{{ t.sprawa }}</a></td></tr>{% endfor %}</table>{% else %}<p class="szary">Brak.</p>{% endif %}</div>
 <div class="karta"><h2>Ostatnio zrobione</h2><ul class="chronologia">{% for c in ostatnie %}<li><span class="szary">{{ c.data|date:"d.m" }} · {{ c.czas_txt }}</span> <a href="{{ c.sprawa.get_absolute_url }}">{{ c.sprawa.numer }}</a> {{ c.opis|truncatechars:80 }}</li>{% empty %}<li class="szary">Jeszcze nic.</li>{% endfor %}</ul></div>

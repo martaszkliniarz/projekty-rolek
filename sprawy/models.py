@@ -316,6 +316,174 @@ class Wplyw(models.Model):
         return f"{self.data:%d.%m.%Y} {self.tytul}"
 
 
+class Mediacja(models.Model):
+    """Mediacja — osobny rejestr. Kancelaria występuje jako mediator albo jako pełnomocnik strony."""
+
+    class Rola(models.TextChoices):
+        MEDIATOR = "mediator", "jestem mediatorem"
+        PELNOMOCNIK = "pelnomocnik", "jestem pełnomocnikiem strony"
+
+    class Dziedzina(models.TextChoices):
+        RODZINNA = "rodzinna", "rodzinna"
+        KARNA = "karna", "karna"
+        CYWILNA = "cywilna", "cywilna"
+        GOSPODARCZA = "gospodarcza", "gospodarcza"
+        INNA = "inna", "inna"
+
+    class Podstawa(models.TextChoices):
+        SAD = "sad", "skierowanie przez sąd"
+        PROKURATOR = "prokurator", "skierowanie przez prokuratora / policję"
+        UMOWA = "umowa", "umowa o mediację (prywatna)"
+
+    class Status(models.TextChoices):
+        SKIEROWANA = "skierowana", "skierowana / nowa"
+        W_TOKU = "w_toku", "w toku"
+        ZAKONCZONA = "zakonczona", "zakończona"
+        ROZLICZONA = "rozliczona", "zakończona i rozliczona"
+
+    class Wynik(models.TextChoices):
+        UGODA = "ugoda", "ugoda"
+        CZESCIOWA = "czesciowa", "ugoda częściowa"
+        BRAK_UGODY = "brak_ugody", "brak ugody"
+        BRAK_ZGODY = "brak_zgody", "brak zgody na mediację"
+        REZYGNACJA = "rezygnacja", "rezygnacja / wycofanie strony"
+
+    numer = models.CharField("nr", max_length=20, unique=True, blank=True, help_text="Nadawany automatycznie, np. M/2026/003")
+    tytul = models.CharField("nazwa", max_length=200, help_text="np. Nowak / Nowak – kontakty z dzieckiem")
+    rola = models.CharField(max_length=12, choices=Rola.choices, default=Rola.MEDIATOR)
+    dziedzina = models.CharField(max_length=12, choices=Dziedzina.choices, default=Dziedzina.RODZINNA)
+    podstawa = models.CharField(max_length=12, choices=Podstawa.choices, default=Podstawa.SAD)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.SKIEROWANA)
+
+    organ = models.CharField("sąd / prokuratura kierująca", max_length=200, blank=True)
+    sygnatura = models.CharField("sygnatura akt", max_length=60, blank=True)
+    data_skierowania = models.DateField("data doręczenia skierowania / zawarcia umowy", null=True, blank=True)
+    termin_do = models.DateField("termin na przeprowadzenie mediacji", null=True, blank=True,
+                                 help_text="Z postanowienia o skierowaniu (w sprawach cywilnych zwykle do 3 miesięcy).")
+    przedmiot = models.TextField("przedmiot mediacji", blank=True,
+                                 help_text="np. kontakty z małoletnim, alimenty, podział majątku, naprawienie szkody")
+
+    # rola: pełnomocnik
+    sprawa = models.ForeignKey(Sprawa, on_delete=models.SET_NULL, null=True, blank=True, related_name="mediacje",
+                               help_text="Sprawa klienta, w której toczy się mediacja (gdy jestem pełnomocnikiem).")
+    mediator = models.CharField("mediator (imię, nazwisko, kontakt)", max_length=200, blank=True)
+
+    # wynik
+    wynik = models.CharField(max_length=12, choices=Wynik.choices, blank=True)
+    data_zakonczenia = models.DateField(null=True, blank=True)
+    data_protokolu = models.DateField("protokół złożony w sądzie / u prokuratora", null=True, blank=True)
+    tresc_ugody = models.TextField("ustalenia / treść ugody", blank=True)
+
+    # rozliczenie (mediator)
+    platnik = models.CharField(max_length=120, blank=True, help_text="np. strony po połowie, Skarb Państwa")
+    wynagrodzenie = models.DecimalField("wynagrodzenie (zł)", max_digits=10, decimal_places=2, null=True, blank=True)
+    wydatki = models.DecimalField("wydatki (zł)", max_digits=10, decimal_places=2, null=True, blank=True)
+    data_wniosku_koszty = models.DateField("wniosek o wynagrodzenie / rachunek z dnia", null=True, blank=True)
+    data_zaplaty = models.DateField("zapłacono dnia", null=True, blank=True)
+
+    notatki = models.TextField("notatki (poufne)", blank=True)
+    utworzono = models.DateTimeField(auto_now_add=True)
+    zmieniono = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "mediacja"
+        verbose_name_plural = "mediacje"
+        ordering = ["-utworzono"]
+
+    def __str__(self):
+        return f"{self.numer} {self.tytul}"
+
+    def save(self, *args, **kwargs):
+        if not self.numer:
+            rok = (self.data_skierowania or date.today()).year
+            n = Mediacja.objects.filter(numer__startswith=f"M/{rok}/").count() + 1
+            while Mediacja.objects.filter(numer=f"M/{rok}/{n:03d}").exists():
+                n += 1
+            self.numer = f"M/{rok}/{n:03d}"
+        super().save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse("mediacja", args=[self.pk])
+
+    @property
+    def aktywna(self):
+        return self.status in (self.Status.SKIEROWANA, self.Status.W_TOKU)
+
+    @property
+    def dni_do_konca(self):
+        return (self.termin_do - date.today()).days if self.termin_do else None
+
+    @property
+    def protokol_do_zlozenia(self):
+        return (self.rola == self.Rola.MEDIATOR and self.podstawa != self.Podstawa.UMOWA
+                and bool(self.wynik) and not self.data_protokolu)
+
+    def czas_minuty(self):
+        return ((self.posiedzenia.filter(odbyte=True).aggregate(s=Sum("czas_min"))["s"] or 0)
+                + (self.wpisy.aggregate(s=Sum("czas_min"))["s"] or 0))
+
+
+class StronaMediacji(models.Model):
+    mediacja = models.ForeignKey(Mediacja, on_delete=models.CASCADE, related_name="strony")
+    osoba = models.ForeignKey(Osoba, on_delete=models.PROTECT, related_name="mediacje")
+    rola = models.CharField(max_length=80, help_text="np. wnioskodawczyni, uczestnik, pokrzywdzony, podejrzany")
+    pelnomocnik = models.CharField("pełnomocnik", max_length=200, blank=True)
+    moj_klient = models.BooleanField("mój klient", default=False, help_text="Gdy jestem pełnomocnikiem tej strony")
+
+    class Meta:
+        verbose_name = "strona mediacji"
+        verbose_name_plural = "strony mediacji"
+
+    def __str__(self):
+        return f"{self.osoba} ({self.rola})"
+
+
+class Posiedzenie(models.Model):
+    class Rodzaj(models.TextChoices):
+        WSTEPNE = "wstepne", "spotkanie informacyjne / wstępne"
+        WSPOLNE = "wspolne", "posiedzenie wspólne"
+        INDYWIDUALNE = "indywidualne", "spotkanie indywidualne"
+
+    mediacja = models.ForeignKey(Mediacja, on_delete=models.CASCADE, related_name="posiedzenia")
+    data = models.DateField()
+    godzina = models.TimeField(null=True, blank=True)
+    rodzaj = models.CharField(max_length=12, choices=Rodzaj.choices, default=Rodzaj.WSPOLNE)
+    z_kim = models.CharField("uczestnicy", max_length=200, blank=True, help_text="przy spotkaniu indywidualnym — z kim")
+    miejsce = models.CharField(max_length=200, blank=True, help_text="np. kancelaria / online (link)")
+    odbyte = models.BooleanField(default=False)
+    czas_min = models.PositiveIntegerField("czas (minuty)", default=0)
+    notatka = models.TextField("notatka (poufna)", blank=True)
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+
+    class Meta:
+        verbose_name = "posiedzenie mediacyjne"
+        verbose_name_plural = "posiedzenia mediacyjne"
+        ordering = ["data", "godzina"]
+
+    def __str__(self):
+        return f"{self.data:%d.%m.%Y} {self.get_rodzaj_display()}"
+
+
+class WpisMediacji(models.Model):
+    """Chronologia mediacji poza posiedzeniami: telefony, korespondencja, protokół, rachunek…"""
+
+    mediacja = models.ForeignKey(Mediacja, on_delete=models.CASCADE, related_name="wpisy")
+    data = models.DateField(default=date.today)
+    opis = models.TextField()
+    czas_min = models.PositiveIntegerField("czas (minuty)", default=0)
+    wykonal = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    utworzono = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "wpis w mediacji"
+        verbose_name_plural = "wpisy w mediacjach"
+        ordering = ["-data", "-utworzono"]
+
+    @property
+    def czas_txt(self):
+        return format_czas(self.czas_min)
+
+
 def format_czas(minuty: int) -> str:
     h, m = divmod(minuty or 0, 60)
     if h and m:

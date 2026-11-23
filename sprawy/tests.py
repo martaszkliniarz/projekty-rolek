@@ -317,3 +317,77 @@ class RaportTest(DaneMixin, TestCase):
             from .raport import wyslij_raport
             wyslij_raport()
         self.assertEqual(len(mail.outbox), 1)
+
+
+# --------------------------------------------------------------- mediacje ---
+from .models import Mediacja, Posiedzenie, StronaMediacji, WpisMediacji
+
+
+class MediacjeTest(DaneMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.m = Mediacja.objects.create(tytul="Nowak / Nowak – kontakty", rola="mediator", podstawa="sad",
+                                         sygnatura="III Nsm 50/26", data_skierowania=date(2026, 9, 1),
+                                         termin_do=date.today() + timedelta(days=5))
+        StronaMediacji.objects.create(mediacja=self.m, osoba=self.klient, rola="wnioskodawczyni")
+
+    def test_numeracja(self):
+        self.assertEqual(self.m.numer, "M/2026/001")
+
+    def test_strony(self):
+        for nazwa, args in [("lista_mediacji", []), ("mediacja", [self.m.pk])]:
+            self.assertEqual(self.client.get(reverse(nazwa, args=args)).status_code, 200)
+        r = self.client.get(reverse("lista_mediacji"))
+        self.assertContains(r, "Nowak / Nowak")
+        self.assertContains(r, "termin na mediację upływa")
+
+    def test_posiedzenie_i_czas(self):
+        url = reverse("mediacja", args=[self.m.pk])
+        self.client.post(url, {"dodaj_posiedzenie": "1", "p-data": "2026-12-01", "p-godzina": "16:00",
+                               "p-rodzaj": "wspolne", "p-z_kim": "", "p-miejsce": "kancelaria"})
+        p = Posiedzenie.objects.get()
+        self.assertContains(self.client.get(url), "posiedzenie wspólne")
+        self.client.post(url, {"odbyte": p.pk, f"o{p.pk}-godziny": "2", f"o{p.pk}-minuty": "0",
+                               f"o{p.pk}-notatka": "Strony zbliżyły stanowiska"})
+        p.refresh_from_db()
+        self.m.refresh_from_db()
+        self.assertTrue(p.odbyte)
+        self.assertEqual(self.m.status, "w_toku")
+        self.client.post(url, {"dodaj_wpis": "1", "w-data": "2026-11-20", "w-opis": "Telefon", "w-godziny": "0",
+                               "w-minuty": "15"})
+        self.assertEqual(WpisMediacji.objects.get().czas_min, 15)
+        self.assertEqual(self.m.czas_minuty(), 135)
+
+    def test_zakonczenie_i_protokol(self):
+        url = reverse("mediacja", args=[self.m.pk])
+        self.client.post(url, {"zakoncz": "1", "z-wynik": "ugoda", "z-data_zakonczenia": "", "z-data_protokolu": "",
+                               "z-tresc_ugody": "Kontakty co drugi weekend"})
+        self.m.refresh_from_db()
+        self.assertEqual((self.m.status, self.m.data_zakonczenia), ("zakonczona", date.today()))
+        self.assertTrue(self.m.protokol_do_zlozenia)
+        self.assertContains(self.client.get(reverse("pulpit")), "protokół do złożenia")
+        self.assertIn("protokół do złożenia", tresc_raportu()[1])
+        self.client.post(url, {"zakoncz": "1", "z-wynik": "ugoda", "z-data_zakonczenia": "2026-11-20",
+                               "z-data_protokolu": "2026-11-21", "z-tresc_ugody": "x"})
+        self.m.refresh_from_db()
+        self.assertFalse(self.m.protokol_do_zlozenia)
+
+    def test_umowna_bez_protokolu(self):
+        self.m.podstawa, self.m.wynik = "umowa", "ugoda"
+        self.m.save()
+        self.assertFalse(self.m.protokol_do_zlozenia)
+
+    def test_kalendarz_poufny(self):
+        Posiedzenie.objects.create(mediacja=self.m, data=date(2026, 12, 3), godzina=time(16, 0), notatka="TAJNE")
+        ics = kalendarz_ics([], anonimowy=False, posiedzenia=Posiedzenie.objects.all())
+        self.assertIn("Mediacja M/2026/001", ics)
+        self.assertNotIn("Nowak", ics)
+        self.assertNotIn("TAJNE", ics)
+
+    def test_mediacja_w_sprawie_klienta(self):
+        Mediacja.objects.create(tytul="w sprawie", rola="pelnomocnik", sprawa=self.sprawa)
+        self.assertContains(self.client.get(reverse("sprawa", args=[self.sprawa.pk])), "toczy się mediacja")
+
+    def test_raport_czasu(self):
+        Posiedzenie.objects.create(mediacja=self.m, data=date.today(), odbyte=True, czas_min=90)
+        self.assertContains(self.client.get(reverse("raport_czasu")), "Mediacje: 1 h 30 min")

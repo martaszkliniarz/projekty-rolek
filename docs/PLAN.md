@@ -4,6 +4,13 @@
 Kartoteka spraw, chronologia z czasem pracy, terminy i kalkulator (KPC/KPK),
 raport czasu (CSV), kalendarz .ics dla Google, wersja lokalna i chmurowa.
 
+## ✅ Mediacje
+Osobny rejestr mediacji (rola mediatora lub pełnomocnika): strony, skierowanie, termin na przeprowadzenie,
+posiedzenia z czasem i poufną notatką, chronologia, wynik/ugoda, przypomnienie o złożeniu protokołu,
+rozliczenie wynagrodzenia mediatora. Posiedzenia na pulpicie, w porannym raporcie i w kalendarzu (anonimowo).
+Do rozważenia: dopasowanie wpływów z poczty do mediacji po sygnaturze, szablony dokumentów mediatora
+(zaproszenie na spotkanie, protokół, ugoda, rachunek).
+
 ## Etap 2 — poczta, portal, Google i poranny raport
 - ✅ **Skrzynka „Wpływy”** z dopasowaniem do sprawy po sygnaturze → chronologia / kalkulator terminu.
 - ✅ **Poczta home.pl (IMAP, tylko odczyt)**: kancelaria@adwokat-sosnowiec.eu — powiadomienia z portalu
